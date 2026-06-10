@@ -1,0 +1,6 @@
+{
+  "installCommand": "npm install",
+  "buildCommand": "npx expo export --platform web && cp assets/icon-apple.png dist/icon-apple.png && cp assets/icon-192.png dist/icon-192.png && cp assets/icon-512.png dist/icon-512.png && cp web/manifest.json dist/manifest.json && node scripts/patch-html.js",
+  "outputDirectory": "dist",
+  "framework": null
+}

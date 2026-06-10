@@ -1,0 +1,40 @@
+{
+  "expo": {
+    "name": "CarLoan",
+    "slug": "carloan-rn",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#000000"
+    },
+    "statusBar": {
+      "style": "auto",
+      "hidden": false,
+      "translucent": true
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.rafaelreis.carloan-rn",
+      "infoPlist": {
+        "UIViewControllerBasedStatusBarAppearance": false
+      }
+    },
+    "android": {
+      "package": "com.rafaelreis.carloan_rn"
+    },
+    "web": {
+      "favicon": "./assets/icon-192.png",
+      "bundler": "metro",
+      "output": "single",
+      "name": "CarLoan",
+      "shortName": "CarLoan",
+      "description": "Gestão de financiamento de veículos",
+      "themeColor": "#000000",
+      "backgroundColor": "#000000"
+    }
+  }
+}
