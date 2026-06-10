@@ -18,8 +18,8 @@ import { tabBarProgress, tabBarVisible } from './tabBarController';
 
 export type RootStackParamList = {
   FinancingsTab: undefined;
-  Dashboard: { financingId: string };
-  Installments: { financingId: string };
+  Dashboard: { financingId: string; readOnly?: boolean };
+  Installments: { financingId: string; readOnly?: boolean };
   InstallmentDetail: { financingId: string; installmentId: string };
   EditFinancing: { financingId: string };
   Report: { financingId: string };

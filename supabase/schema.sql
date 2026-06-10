@@ -36,6 +36,23 @@ as $$
   );
 $$;
 
+-- Helper: check if current user has access to a financing (owner or shared)
+create or replace function public.has_access_to_financing(financing_id text)
+returns boolean
+language sql
+stable security definer set search_path = public
+as $$
+  select exists (
+    select 1 from public.financings f
+    where f.id = financing_id and f.user_id = auth.uid()
+  ) or exists (
+    select 1 from public.financing_shares s
+    where s.financing_id = financing_id
+      and s.shared_with_id = auth.uid()
+      and s.status = 'accepted'
+  );
+$$;
+
 create policy "profiles_admin_manage" on public.profiles
   for update using (public.is_admin());
 
@@ -85,9 +102,20 @@ create table if not exists public.financings (
 
 alter table public.financings enable row level security;
 
-create policy "financings_own" on public.financings
-  using (auth.uid() = user_id)
+create policy "financings_own_or_shared" on public.financings
+  for select using (
+    auth.uid() = user_id or public.has_access_to_financing(id)
+  );
+
+create policy "financings_modify_own" on public.financings
+  for insert with check (auth.uid() = user_id);
+
+create policy "financings_update_own" on public.financings
+  for update using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+create policy "financings_delete_own" on public.financings
+  for delete using (auth.uid() = user_id);
 
 -- ============================================================
 -- installments (per user)
@@ -108,9 +136,20 @@ create index if not exists installments_financing_idx on public.installments(fin
 
 alter table public.installments enable row level security;
 
-create policy "installments_own" on public.installments
-  using (auth.uid() = user_id)
+create policy "installments_own_or_shared" on public.installments
+  for select using (
+    auth.uid() = user_id or public.has_access_to_financing(financing_id)
+  );
+
+create policy "installments_modify_own" on public.installments
+  for insert with check (auth.uid() = user_id);
+
+create policy "installments_update_own" on public.installments
+  for update using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+create policy "installments_delete_own" on public.installments
+  for delete using (auth.uid() = user_id);
 
 -- ============================================================
 -- payments (per user, one per installment)
@@ -127,9 +166,51 @@ create table if not exists public.payments (
 
 alter table public.payments enable row level security;
 
-create policy "payments_own" on public.payments
-  using (auth.uid() = user_id)
+create policy "payments_own_or_shared" on public.payments
+  for select using (
+    auth.uid() = user_id or public.has_access_to_financing(
+      (select financing_id from public.installments where id = installment_id)
+    )
+  );
+
+create policy "payments_modify_own" on public.payments
+  for insert with check (auth.uid() = user_id);
+
+create policy "payments_update_own" on public.payments
+  for update using (auth.uid() = user_id)
   with check (auth.uid() = user_id);
+
+create policy "payments_delete_own" on public.payments
+  for delete using (auth.uid() = user_id);
+
+-- ============================================================
+-- financing_shares (view-only sharing of financings)
+-- ============================================================
+create table if not exists public.financing_shares (
+  id                text primary key,
+  financing_id      text references public.financings(id) on delete cascade not null,
+  shared_by         uuid references public.profiles(id) on delete cascade not null,
+  shared_with_email text not null,
+  shared_with_id    uuid references public.profiles(id) on delete cascade,
+  status            text not null default 'pending' check (status in ('pending', 'accepted', 'rejected')),
+  created_at        float8 not null,
+  constraint unique_share unique(financing_id, shared_with_email)
+);
+
+alter table public.financing_shares enable row level security;
+
+create policy "shares_view_own" on public.financing_shares
+  for select using (auth.uid() = shared_by or (auth.uid() = shared_with_id and status = 'accepted'));
+
+create policy "shares_insert_own" on public.financing_shares
+  for insert with check (auth.uid() = shared_by);
+
+create policy "shares_update_own" on public.financing_shares
+  for update using (auth.uid() = shared_by or auth.uid() = shared_with_id)
+  with check (auth.uid() = shared_by or auth.uid() = shared_with_id);
+
+create policy "shares_delete_own" on public.financing_shares
+  for delete using (auth.uid() = shared_by or auth.uid() = shared_with_id);
 
 -- ============================================================
 -- storage: bucket "images" (car photos + payment receipts)

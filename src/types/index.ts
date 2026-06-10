@@ -82,3 +82,13 @@ export interface AmortizationResult {
   reduceTerm: ReduceTermResult;
   reduceMonthly: ReduceMonthlyResult;
 }
+
+export interface FinancingShare {
+  id: string;
+  financingId: string;
+  sharedBy: string;
+  sharedWithEmail: string;
+  sharedWithId: string | null;
+  status: 'pending' | 'accepted' | 'rejected';
+  createdAt: number;
+}

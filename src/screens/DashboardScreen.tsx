@@ -1,6 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
@@ -11,6 +11,7 @@ import { useResponsive } from '../hooks/useResponsive';
 import { FinancingWithInstallments, Installment, isCurrentMonth } from '../types';
 import { financingService } from '../services/financingService';
 import { installmentService } from '../services/installmentService';
+import { sharingService } from '../services/sharingService';
 import { RootStackParamList, TAB_BAR_BOTTOM_OFFSET } from '../navigation';
 import { formatDate, daysUntil } from '../utils/date';
 import { showAlert, showConfirm } from '../utils/dialogs';
@@ -25,9 +26,12 @@ export const DashboardScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const { financingId } = route.params;
+  const { financingId, readOnly } = route.params;
   const [financing, setFinancing] = useState<FinancingWithInstallments | null>(null);
   const [loading, setLoading] = useState(true);
+  const [showShareModal, setShowShareModal] = useState(false);
+  const [shareEmail, setShareEmail] = useState('');
+  const [sharing, setSharing] = useState(false);
 
   const load = useCallback(async () => {
     const data = await financingService.getById(financingId);
@@ -73,21 +77,48 @@ export const DashboardScreen: React.FC = () => {
     );
   };
 
+  const handleShare = async () => {
+    if (!shareEmail.trim()) {
+      showAlert('Email vazio', 'Digite um email válido');
+      return;
+    }
+    setSharing(true);
+    try {
+      await sharingService.sendInvite(financingId, shareEmail.trim());
+      showAlert('Sucesso', `Convite enviado para ${shareEmail}`);
+      setShareEmail('');
+      setShowShareModal(false);
+    } catch (e: any) {
+      showAlert('Erro', e?.message ?? 'Tente novamente');
+    } finally {
+      setSharing(false);
+    }
+  };
+
   const days = featured ? daysUntil(featured.dueDate) : 0;
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={[{ paddingTop: insets.top + 8, paddingBottom: TAB_BAR_BOTTOM_OFFSET + 20 }, contentStyle]}>
-        <View style={styles.topBar}>
-          <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
-            <Ionicons name="chevron-back" size={28} color={theme.accentDark} />
-          </TouchableOpacity>
-          <Text style={styles.topTitle} numberOfLines={1}>{financing.carName}</Text>
-          <TouchableOpacity onPress={() => navigation.navigate('EditFinancing', { financingId })} style={styles.editBtn}>
-            <Ionicons name="pencil" size={20} color={theme.accentDark} />
-          </TouchableOpacity>
+      <View style={[styles.topBar, { paddingTop: insets.top + 4 }]}>
+        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+          <Ionicons name="chevron-back" size={28} color={theme.accentDark} />
+        </TouchableOpacity>
+        <Text style={styles.topTitle} numberOfLines={1}>{financing.carName}</Text>
+        <View style={styles.topButtonsGroup}>
+          {!readOnly && (
+            <TouchableOpacity onPress={() => navigation.navigate('EditFinancing', { financingId })} style={styles.topBtn}>
+              <Ionicons name="pencil" size={20} color={theme.accentDark} />
+            </TouchableOpacity>
+          )}
+          {!readOnly && (
+            <TouchableOpacity onPress={() => setShowShareModal(true)} style={styles.topBtn}>
+              <Ionicons name="share-social-outline" size={20} color={theme.accentDark} />
+            </TouchableOpacity>
+          )}
         </View>
+      </View>
 
+      <ScrollView contentContainerStyle={[{ paddingBottom: TAB_BAR_BOTTOM_OFFSET + 20 }, contentStyle]}>
         <View style={styles.card}>
           <View style={styles.progressHeader}>
             <Text style={styles.progressLabel}>{paid.length} de {installments.length} parcelas</Text>
@@ -107,7 +138,7 @@ export const DashboardScreen: React.FC = () => {
           <Row label="Restante" value={formatBRL(remainingTotal)} theme={theme} color={theme.orange} />
         </View>
 
-        {featured && (
+        {featured && !readOnly && (
           <View style={[styles.card, styles.quickPay]}>
             <View style={styles.quickPayHeader}>
               <Text style={styles.quickPayBadge}>{isCurrentMonth(featured) ? 'ESTE MÊS' : 'PRÓXIMA'}</Text>
@@ -132,16 +163,52 @@ export const DashboardScreen: React.FC = () => {
         )}
 
         <View style={styles.card}>
-          <NavRow icon="list-outline" label="Ver todas as parcelas" onPress={() => navigation.navigate('Installments', { financingId })} theme={theme} styles={styles} />
+          <NavRow icon="list-outline" label="Ver todas as parcelas" onPress={() => navigation.navigate('Installments', { financingId, readOnly })} theme={theme} styles={styles} />
           <View style={styles.sep} />
           <NavRow icon="bar-chart-outline" label="Relatório" onPress={() => navigation.navigate('Report', { financingId })} theme={theme} styles={styles} />
-          <View style={styles.sep} />
-          <NavRow icon="trending-down-outline" label="Simular antecipação" onPress={() => navigation.navigate('Simulation', { financingId })} theme={theme} styles={styles} />
+          {!readOnly && (
+            <>
+              <View style={styles.sep} />
+              <NavRow icon="trending-down-outline" label="Simular antecipação" onPress={() => navigation.navigate('Simulation', { financingId })} theme={theme} styles={styles} />
+            </>
+          )}
         </View>
       </ScrollView>
+
+      <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => setShowShareModal(false)}>
+        <View style={styles.modalOverlay}>
+          <View style={styles.shareModal}>
+            <Text style={styles.shareModalTitle}>Compartilhar financiamento</Text>
+            <Text style={styles.shareModalSub}>Digite o email de quem você quer compartilhar.</Text>
+            <TextInput
+              style={styles.shareInput}
+              placeholder="email@example.com"
+              placeholderTextColor={theme.textSecondary}
+              value={shareEmail}
+              onChangeText={setShareEmail}
+              editable={!sharing}
+              keyboardType="email-address"
+              autoCapitalize="none"
+            />
+            <View style={styles.shareModalBtns}>
+              <TouchableOpacity style={styles.shareBtnCancel} onPress={() => setShowShareModal(false)} disabled={sharing}>
+                <Text style={styles.shareBtnCancelText}>Cancelar</Text>
+              </TouchableOpacity>
+              <TouchableOpacity style={styles.shareBtnConfirm} onPress={handleShare} disabled={sharing}>
+                {sharing ? (
+                  <ActivityIndicator size="small" color="#000" />
+                ) : (
+                  <Text style={styles.shareBtnConfirmText}>Compartilhar</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
+
 
 const Row: React.FC<{ label: string; value: string; theme: Theme; color?: string }> = ({ label, value, theme, color }) => (
   <View style={{ flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 7 }}>
@@ -167,10 +234,11 @@ const NavRow: React.FC<{
 const makeStyles = (theme: Theme) => StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg },
   center: { alignItems: 'center', justifyContent: 'center' },
-  topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, marginBottom: 12 },
+  topBar: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingBottom: 10, backgroundColor: theme.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: theme.border },
   backBtn: { padding: 4 },
   topTitle: { flex: 1, fontSize: 20, fontWeight: '800', color: theme.text, textAlign: 'center' },
-  editBtn: { padding: 8 },
+  topButtonsGroup: { flexDirection: 'row', gap: 4 },
+  topBtn: { padding: 8 },
   card: { marginHorizontal: 16, marginBottom: 12, backgroundColor: theme.card, borderRadius: 16, padding: 16, ...theme.shadow },
   progressHeader: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
   progressLabel: { fontSize: 14, fontWeight: '600', color: theme.text },
@@ -191,4 +259,14 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   doneTitle: { fontSize: 17, fontWeight: '800', color: theme.text },
   navRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingVertical: 13 },
   navRowText: { flex: 1, fontSize: 15, fontWeight: '600', color: theme.text },
+  modalOverlay: { flex: 1, backgroundColor: '#00000070', alignItems: 'center', justifyContent: 'center', padding: 32 },
+  shareModal: { width: '100%', maxWidth: 400, backgroundColor: theme.card, borderRadius: 20, padding: 24, gap: 12 },
+  shareModalTitle: { fontSize: 18, fontWeight: '800', color: theme.text },
+  shareModalSub: { fontSize: 14, color: theme.textSecondary },
+  shareInput: { borderWidth: 1, borderColor: theme.border, borderRadius: 12, padding: 12, fontSize: 15, color: theme.text, backgroundColor: theme.bg, marginVertical: 8 },
+  shareModalBtns: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12, marginTop: 4 },
+  shareBtnCancel: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, backgroundColor: theme.bg },
+  shareBtnCancelText: { fontSize: 15, fontWeight: '600', color: theme.textSecondary },
+  shareBtnConfirm: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center', minWidth: 90 },
+  shareBtnConfirmText: { fontSize: 15, fontWeight: '700', color: '#000' },
 });

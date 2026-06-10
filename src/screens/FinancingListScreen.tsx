@@ -8,8 +8,9 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, Theme } from '../theme';
 import { useResponsive } from '../hooks/useResponsive';
-import { Financing } from '../types';
+import { Financing, FinancingShare } from '../types';
 import { financingService } from '../services/financingService';
+import { sharingService } from '../services/sharingService';
 import { supabase } from '../lib/supabase';
 import { FinancingCard } from '../components/FinancingCard';
 import { AddFinancingSheet } from '../components/AddFinancingSheet';
@@ -25,27 +26,54 @@ export const FinancingListScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const [financings, setFinancings] = useState<Financing[]>([]);
+  const [sharedFinancings, setSharedFinancings] = useState<Array<Financing & { shareId: string }>>([]);
   const [paidCounts, setPaidCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
 
   const load = useCallback(async () => {
-    const data = await financingService.getAll();
-    setFinancings(data);
+    const [ownData, sharedShares] = await Promise.all([
+      financingService.getAll(),
+      sharingService.getSharedWithMe(),
+    ]);
+    setFinancings(ownData);
+
+    const allIds = [...ownData.map(f => f.id)];
+    if (sharedShares.length > 0) {
+      allIds.push(...sharedShares.map(s => s.financingId));
+    }
 
     const counts: Record<string, number> = {};
-    if (data.length > 0) {
+    if (allIds.length > 0) {
       const { data: rows } = await supabase
         .from('payments')
         .select('installment_id, installments!inner(financing_id)')
-        .in('installments.financing_id', data.map(f => f.id));
+        .in('installments.financing_id', allIds);
       for (const row of (rows as any[]) ?? []) {
         const fid = row.installments.financing_id;
         counts[fid] = (counts[fid] ?? 0) + 1;
       }
     }
     setPaidCounts(counts);
+
+    if (sharedShares.length > 0) {
+      const sharedIds = sharedShares.map(s => s.financingId);
+      const { data: sharedData } = await supabase
+        .from('financings')
+        .select('*')
+        .in('id', sharedIds);
+      const sharedDataMap = ((sharedData ?? []) as any[]).reduce((acc, f) => {
+        acc[f.id] = f;
+        return acc;
+      }, {} as Record<string, any>);
+      const shared = sharedShares
+        .map(s => ({ ...sharedDataMap[s.financingId], shareId: s.id }))
+        .filter(Boolean);
+      setSharedFinancings(shared);
+    } else {
+      setSharedFinancings([]);
+    }
   }, []);
 
   useFocusEffect(useCallback(() => {
@@ -67,30 +95,49 @@ export const FinancingListScreen: React.FC = () => {
     );
   }
 
+  const data = [
+    { type: 'header', label: 'Meus financiamentos' },
+    ...financings.map(f => ({ type: 'own', financing: f })),
+    ...(financings.length === 0 ? [{ type: 'empty' }] : []),
+    ...(sharedFinancings.length > 0 ? [{ type: 'shared-header', label: 'Financiamentos compartilhados' }] : []),
+    ...sharedFinancings.map(f => ({ type: 'shared', financing: f, shareId: f.shareId })),
+  ];
+
   return (
     <View style={styles.container}>
       <FlatList
-        data={financings}
-        keyExtractor={f => f.id}
+        data={data}
+        keyExtractor={(item, idx) => {
+          if ('financing' in item) return item.financing.id;
+          return `${item.type}-${idx}`;
+        }}
         contentContainerStyle={[{ paddingTop: insets.top + 12, paddingBottom: TAB_BAR_BOTTOM_OFFSET + 80 }, contentStyle]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accentDark} />}
-        ListHeaderComponent={
-          <Text style={styles.title}>Meus financiamentos</Text>
-        }
-        ListEmptyComponent={
-          <View style={styles.empty}>
-            <Ionicons name="car-sport-outline" size={56} color={theme.textTertiary} />
-            <Text style={styles.emptyTitle}>Nenhum financiamento</Text>
-            <Text style={styles.emptySub}>Toque em + para adicionar o financiamento do seu veículo.</Text>
-          </View>
-        }
-        renderItem={({ item }) => (
-          <FinancingCard
-            financing={item}
-            paidCount={paidCounts[item.id] ?? 0}
-            onPress={() => navigation.navigate('Dashboard', { financingId: item.id })}
-          />
-        )}
+        renderItem={({ item }: any) => {
+          if (item.type === 'header') {
+            return <Text style={styles.title}>{item.label}</Text>;
+          }
+          if (item.type === 'shared-header') {
+            return <Text style={[styles.title, { fontSize: 18, marginTop: 20 }]}>{item.label}</Text>;
+          }
+          if (item.type === 'empty') {
+            return (
+              <View style={styles.empty}>
+                <Ionicons name="car-sport-outline" size={56} color={theme.textTertiary} />
+                <Text style={styles.emptyTitle}>Nenhum financiamento</Text>
+                <Text style={styles.emptySub}>Toque em + para adicionar o financiamento do seu veículo.</Text>
+              </View>
+            );
+          }
+          const isReadOnly = item.type === 'shared';
+          return (
+            <FinancingCard
+              financing={item.financing}
+              paidCount={paidCounts[item.financing.id] ?? 0}
+              onPress={() => navigation.navigate('Dashboard', { financingId: item.financing.id, readOnly: isReadOnly })}
+            />
+          );
+        }}
       />
 
       <TouchableOpacity
