@@ -13,6 +13,7 @@ import { useResponsive } from '../hooks/useResponsive';
 import { FinancingWithInstallments } from '../types';
 import { financingService } from '../services/financingService';
 import { imageService } from '../services/imageService';
+import { sharingService, FinancingMember } from '../services/sharingService';
 import { CurrencyInput } from '../components/CurrencyInput';
 import { RootStackParamList, TAB_BAR_BOTTOM_OFFSET } from '../navigation';
 import { showAlert, showConfirm } from '../utils/dialogs';
@@ -38,11 +39,16 @@ export const EditFinancingScreen: React.FC = () => {
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [members, setMembers] = useState<FinancingMember[]>([]);
 
   useFocusEffect(useCallback(() => {
-    financingService.getById(financingId).then(async f => {
+    Promise.all([
+      financingService.getById(financingId),
+      sharingService.getMembers(financingId),
+    ]).then(async ([f, mbrs]) => {
       if (!f) return;
       setFinancing(f);
+      setMembers(mbrs);
       setCarName(f.carName);
       setLicensePlate(f.licensePlate);
       setBank(f.bank);
@@ -123,6 +129,33 @@ export const EditFinancingScreen: React.FC = () => {
 
   const displayPhoto = photoUri ?? photoUrl;
 
+  const handleTogglePermission = async (member: FinancingMember) => {
+    const next: 'view' | 'edit' = member.permission === 'view' ? 'edit' : 'view';
+    setMembers(cur => cur.map(m => m.shareId === member.shareId ? { ...m, permission: next } : m));
+    try {
+      await sharingService.updateMemberPermission(member.shareId, next);
+    } catch (e: any) {
+      setMembers(cur => cur.map(m => m.shareId === member.shareId ? { ...m, permission: member.permission } : m));
+      showAlert('Erro', e?.message ?? 'Não foi possível alterar a permissão');
+    }
+  };
+
+  const handleRemoveMember = (member: FinancingMember) => {
+    showConfirm(
+      `Remover @${member.username}?`,
+      'Essa pessoa perderá o acesso ao financiamento.',
+      'Remover',
+      async () => {
+        try {
+          await sharingService.removeShare(member.shareId);
+          setMembers(cur => cur.filter(m => m.shareId !== member.shareId));
+        } catch (e: any) {
+          showAlert('Erro', e?.message ?? 'Não foi possível remover');
+        }
+      },
+    );
+  };
+
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.container}>
       <ScrollView contentContainerStyle={[{ paddingTop: insets.top + 8, paddingBottom: TAB_BAR_BOTTOM_OFFSET + 20 }, contentStyle]} keyboardShouldPersistTaps="handled">
@@ -178,6 +211,34 @@ export const EditFinancingScreen: React.FC = () => {
           </View>
         </View>
 
+        {members.length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.membersTitle}>Compartilhado com</Text>
+            {members.map((m, idx) => (
+              <View key={m.shareId}>
+                {idx > 0 && <View style={styles.sep} />}
+                <View style={styles.memberRow}>
+                  <View style={[styles.memberAvatar, { backgroundColor: theme.accent + '30' }]}>
+                    <Ionicons name="person" size={13} color={theme.accentDark} />
+                  </View>
+                  <Text style={styles.memberUsername}>@{m.username}</Text>
+                  <TouchableOpacity
+                    style={[styles.permissionBadge, m.permission === 'edit' && styles.permissionBadgeEdit]}
+                    onPress={() => handleTogglePermission(m)}
+                  >
+                    <Text style={[styles.permissionBadgeText, m.permission === 'edit' && styles.permissionBadgeTextEdit]}>
+                      {m.permission === 'edit' ? 'editar' : 'ver'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => handleRemoveMember(m)} style={styles.memberRemoveBtn}>
+                    <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
         <TouchableOpacity style={[styles.saveBtn, saving && { opacity: 0.6 }]} onPress={save} disabled={saving}>
           {saving ? <ActivityIndicator color="#000" /> : <Text style={styles.saveBtnText}>Salvar</Text>}
         </TouchableOpacity>
@@ -215,4 +276,13 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   saveBtnText: { fontSize: 16, fontWeight: '800', color: '#000' },
   deleteBtn: { flexDirection: 'row', gap: 6, alignSelf: 'center', alignItems: 'center', marginTop: 18, paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, backgroundColor: theme.spend + '14' },
   deleteBtnText: { fontSize: 14, fontWeight: '700', color: theme.spend },
+  membersTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, color: theme.textSecondary, textTransform: 'uppercase', marginBottom: 8 },
+  memberRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  memberAvatar: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  memberUsername: { fontSize: 14, fontWeight: '600', color: theme.text, flex: 1 },
+  memberRemoveBtn: { padding: 4 },
+  permissionBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: theme.separator, borderWidth: 1, borderColor: theme.border },
+  permissionBadgeEdit: { backgroundColor: theme.accent + '25', borderColor: theme.accentDark + '55' },
+  permissionBadgeText: { fontSize: 11, fontWeight: '700', color: theme.textSecondary },
+  permissionBadgeTextEdit: { color: theme.accentDark },
 });

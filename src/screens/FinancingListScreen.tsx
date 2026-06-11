@@ -8,7 +8,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, Theme } from '../theme';
 import { useResponsive } from '../hooks/useResponsive';
-import { Financing, FinancingShare } from '../types';
+import { Financing } from '../types';
 import { financingService } from '../services/financingService';
 import { sharingService } from '../services/sharingService';
 import { supabase } from '../lib/supabase';
@@ -27,7 +27,7 @@ export const FinancingListScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const [financings, setFinancings] = useState<Financing[]>([]);
-  const [sharedFinancings, setSharedFinancings] = useState<Array<Financing & { shareId: string; permission: 'view' | 'edit' }>>([]);
+  const [sharedFinancings, setSharedFinancings] = useState<Array<Financing & { shareId: string; permission: 'view' | 'edit'; ownerUsername?: string }>>([]);
   const [paidCounts, setPaidCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -61,23 +61,17 @@ export const FinancingListScreen: React.FC = () => {
       .filter(f => f.carPhotoPath)
       .map(f => f.carPhotoPath as string);
 
-    let sharedResult: any[] = [];
+    let sharedResult: Array<Financing & { shareId: string; permission: 'view' | 'edit'; ownerUsername?: string }> = [];
     if (sharedShares.length > 0) {
       const sharedIds = sharedShares.map(s => s.financingId);
-      const { data: sharedData } = await supabase
-        .from('financings')
-        .select('*')
-        .in('id', sharedIds);
-      const sharedDataMap = ((sharedData ?? []) as any[]).reduce((acc, f) => {
-        acc[f.id] = f;
-        return acc;
-      }, {} as Record<string, any>);
+      const sharedData = await financingService.getByIds(sharedIds);
+      const sharedDataMap = sharedData.reduce((acc, f) => { acc[f.id] = f; return acc; }, {} as Record<string, Financing>);
       sharedResult = sharedShares
         .map(s => {
           const f = sharedDataMap[s.financingId];
-          return f ? { ...f, shareId: s.id, permission: s.permission } : null;
+          return f ? { ...f, shareId: s.id, permission: s.permission, ownerUsername: s.ownerUsername } : null;
         })
-        .filter(Boolean) as any[];
+        .filter((x): x is typeof sharedResult[0] => x !== null);
 
       for (const f of sharedResult) {
         if (f.carPhotoPath) photoPaths.push(f.carPhotoPath);
@@ -156,12 +150,14 @@ export const FinancingListScreen: React.FC = () => {
             );
           }
           const isReadOnly = item.type === 'shared' && item.financing.permission === 'view';
+          const ownerUsername: string | undefined = item.type === 'shared' ? item.financing.ownerUsername : undefined;
           return (
             <FinancingCard
               financing={item.financing}
               paidCount={paidCounts[item.financing.id] ?? 0}
               photoUrl={item.financing.carPhotoPath ? photoMap.get(item.financing.carPhotoPath) : null}
-              onPress={() => navigation.navigate('Dashboard', { financingId: item.financing.id, readOnly: isReadOnly })}
+              ownerUsername={ownerUsername}
+              onPress={() => navigation.navigate('Dashboard', { financingId: item.financing.id, readOnly: isReadOnly, ownerUsername })}
             />
           );
         }}

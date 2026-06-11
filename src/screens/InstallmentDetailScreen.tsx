@@ -30,7 +30,7 @@ export const InstallmentDetailScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const { financingId, installmentId } = route.params;
+  const { financingId, installmentId, readOnly } = route.params;
   const [installment, setInstallment] = useState<Installment | null>(null);
   const [loading, setLoading] = useState(true);
   const [showPayDialog, setShowPayDialog] = useState(false);
@@ -150,7 +150,7 @@ export const InstallmentDetailScreen: React.FC = () => {
           <Row label="Saldo devedor após" value={formatBRL(installment.remainingBalance)} theme={theme} />
         </View>
 
-        {!payment && (
+        {!payment && !readOnly && (
           <TouchableOpacity style={styles.payBtn} onPress={openPayDialog}>
             <Ionicons name="checkmark-circle-outline" size={20} color="#000" />
             <Text style={styles.payBtnText}>Marcar como paga</Text>
@@ -167,7 +167,7 @@ export const InstallmentDetailScreen: React.FC = () => {
             <Text style={[styles.cardTitle, { marginTop: 12 }]}>Recibos</Text>
             <View style={styles.receiptGrid}>
               {payment.receiptPaths.map(p => (
-                <TouchableOpacity key={p} onPress={() => receiptUrls[p] && setFullscreenUrl(receiptUrls[p])} onLongPress={() => removeReceipt(p)}>
+                <TouchableOpacity key={p} onPress={() => receiptUrls[p] && setFullscreenUrl(receiptUrls[p])} onLongPress={() => !readOnly ? removeReceipt(p) : null}>
                   {receiptUrls[p] ? (
                     <Image source={{ uri: receiptUrls[p] }} style={styles.receiptThumb} />
                   ) : (
@@ -177,17 +177,21 @@ export const InstallmentDetailScreen: React.FC = () => {
                   )}
                 </TouchableOpacity>
               ))}
-              <TouchableOpacity style={[styles.receiptThumb, styles.addReceipt]} onPress={addReceipt} disabled={uploadingReceipt}>
-                {uploadingReceipt
-                  ? <ActivityIndicator size="small" color={theme.accentDark} />
-                  : <Ionicons name="add" size={24} color={theme.accentDark} />}
-              </TouchableOpacity>
+              {!readOnly && (
+                <TouchableOpacity style={[styles.receiptThumb, styles.addReceipt]} onPress={addReceipt} disabled={uploadingReceipt}>
+                  {uploadingReceipt
+                    ? <ActivityIndicator size="small" color={theme.accentDark} />
+                    : <Ionicons name="add" size={24} color={theme.accentDark} />}
+                </TouchableOpacity>
+              )}
             </View>
-            <Text style={styles.receiptHint}>Toque para ampliar, segure para remover</Text>
+            <Text style={styles.receiptHint}>Toque para ampliar{!readOnly && ', segure para remover'}</Text>
 
-            <TouchableOpacity style={styles.undoBtn} onPress={undoPayment}>
-              <Text style={styles.undoBtnText}>Desfazer pagamento</Text>
-            </TouchableOpacity>
+            {!readOnly && (
+              <TouchableOpacity style={styles.undoBtn} onPress={undoPayment}>
+                <Text style={styles.undoBtnText}>Desfazer pagamento</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
       </ScrollView>

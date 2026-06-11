@@ -14,7 +14,7 @@ export const authService = {
       .select('username')
       .eq('username', trimmed)
       .maybeSingle();
-    if (existing) throw new Error('Username já em uso');
+    if (existing) throw new Error('Nome de usuário já existe');
 
     const { error } = await supabase.auth.signUp({
       email: email.trim(),
@@ -29,10 +29,13 @@ export const authService = {
       if (error.message.includes('already registered')) {
         throw new Error('Email já cadastrado');
       }
+      if (error.status === 429 || error.message.includes('rate limit')) {
+        throw new Error('Já foi enviado um e-mail recentemente. Aguarde antes de tentar novamente.');
+      }
       throw new Error(error.message);
     }
     // Profile is created automatically by the DB trigger on_auth_user_created.
-    // User will receive a confirmation email before being able to log in.
+    await supabase.auth.signOut();
   },
 
   async signIn(identifier: string, password: string): Promise<void> {
@@ -56,7 +59,10 @@ export const authService = {
 
     if (error) {
       if (error.message.includes('Invalid login credentials')) {
-        throw new Error('Senha incorreta');
+        throw new Error('Usuario ou senha inválidos');
+      }
+      if (error.status === 429 || error.message.includes('rate limit')) {
+        throw new Error('Muitas tentativas de login. Aguarde alguns minutos antes de tentar novamente.');
       }
       if (error.message.includes('Email not confirmed')) {
         throw new Error('Conta aprovada, mas o email ainda não foi confirmado. Peça ao admin para desativar a confirmação de email no painel do Supabase.');

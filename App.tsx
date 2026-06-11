@@ -17,12 +17,25 @@ function Inner() {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
 
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-    });
+    const resolveSession = async (session: Session | null) => {
+      if (!session) { setSession(null); return; }
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('status')
+        .eq('id', session.user.id)
+        .maybeSingle();
+      if (profile?.status === 'pending') {
+        await supabase.auth.signOut();
+        setSession(null);
+      } else {
+        setSession(session);
+      }
+    };
+
+    supabase.auth.getSession().then(({ data: { session } }) => resolveSession(session));
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      setSession(session);
+      resolveSession(session);
     });
 
     return () => subscription.unsubscribe();

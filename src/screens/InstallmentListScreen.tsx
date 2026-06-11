@@ -31,7 +31,7 @@ export const InstallmentListScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const { financingId } = route.params;
+  const { financingId, readOnly } = route.params;
   const [installments, setInstallments] = useState<Installment[]>([]);
   const [filter, setFilter] = useState<Filter>('all');
   const [loading, setLoading] = useState(true);
@@ -88,7 +88,7 @@ export const InstallmentListScreen: React.FC = () => {
           <View style={[styles.rowCard, index === 0 && { marginTop: 4 }]}>
             <InstallmentRowItem
               installment={item}
-              onPress={() => navigation.navigate('InstallmentDetail', { financingId, installmentId: item.id })}
+              onPress={() => navigation.navigate('InstallmentDetail', { financingId, installmentId: item.id, readOnly })}
             />
           </View>
         )}

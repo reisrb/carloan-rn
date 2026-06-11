@@ -10,6 +10,7 @@ export interface FinancingShare {
   status: 'pending' | 'accepted' | 'rejected';
   permission: 'view' | 'edit';
   createdAt: number;
+  ownerUsername?: string;
 }
 
 export interface FinancingMember {
@@ -88,12 +89,12 @@ export const sharingService = {
     const userId = await getUserId();
     const { data, error } = await supabase
       .from('financing_shares')
-      .select('*')
+      .select('*, shared_by_profile:shared_by(username)')
       .eq('shared_with_id', userId)
       .eq('status', 'accepted')
       .order('created_at', { ascending: false });
     if (error) throw error;
-    return (data ?? []).map(row => ({
+    return (data ?? []).map((row: any) => ({
       id: row.id,
       financingId: row.financing_id,
       sharedBy: row.shared_by,
@@ -102,6 +103,7 @@ export const sharingService = {
       status: row.status,
       permission: (row.permission ?? 'view') as 'view' | 'edit',
       createdAt: row.created_at,
+      ownerUsername: row.shared_by_profile?.username ?? undefined,
     }));
   },
 

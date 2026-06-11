@@ -27,7 +27,7 @@ export const DashboardScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const { financingId, readOnly } = route.params;
+  const { financingId, readOnly, ownerUsername } = route.params;
   const [financing, setFinancing] = useState<FinancingWithInstallments | null>(null);
   const [loading, setLoading] = useState(true);
   const [showShareModal, setShowShareModal] = useState(false);
@@ -176,7 +176,7 @@ export const DashboardScreen: React.FC = () => {
           <Row label="Restante" value={formatBRL(remainingTotal)} theme={theme} color={theme.orange} />
         </View>
 
-        {featured && !readOnly && (
+        {featured && (
           <View style={[styles.card, styles.quickPay]}>
             <View style={styles.quickPayHeader}>
               <Text style={styles.quickPayBadge}>{isCurrentMonth(featured) ? 'ESTE MÊS' : 'PRÓXIMA'}</Text>
@@ -187,9 +187,11 @@ export const DashboardScreen: React.FC = () => {
             <Text style={styles.quickPayTitle}>Parcela {featured.number}</Text>
             <Text style={styles.quickPayAmount}>{formatBRL(featured.amount)}</Text>
             <Text style={styles.quickPayDate}>{formatDate(featured.dueDate)}</Text>
-            <TouchableOpacity style={styles.quickPayBtn} onPress={quickPay}>
-              <Text style={styles.quickPayBtnText}>Pagar agora</Text>
-            </TouchableOpacity>
+            {!readOnly && (
+              <TouchableOpacity style={styles.quickPayBtn} onPress={quickPay}>
+                <Text style={styles.quickPayBtnText}>Pagar agora</Text>
+              </TouchableOpacity>
+            )}
           </View>
         )}
 
@@ -200,7 +202,13 @@ export const DashboardScreen: React.FC = () => {
           </View>
         )}
 
-        {members.length > 0 && (
+        {readOnly && ownerUsername && (
+          <View style={styles.card}>
+            <Text style={styles.memberUsername}>Financiamento de: @{ownerUsername}</Text>
+          </View>
+        )}
+
+        {!readOnly && members.length > 0 && (
           <View style={styles.card}>
             <Text style={styles.membersTitle}>Compartilhado com</Text>
             {members.map((m, idx) => (
@@ -211,21 +219,17 @@ export const DashboardScreen: React.FC = () => {
                     <Ionicons name="person" size={13} color={theme.accentDark} />
                   </View>
                   <Text style={styles.memberUsername}>@{m.username}</Text>
-                  {!readOnly && (
-                    <TouchableOpacity
-                      style={[styles.permissionBadge, m.permission === 'edit' && styles.permissionBadgeEdit]}
-                      onPress={() => handleTogglePermission(m)}
-                    >
-                      <Text style={[styles.permissionBadgeText, m.permission === 'edit' && styles.permissionBadgeTextEdit]}>
-                        {m.permission === 'edit' ? 'editar' : 'ver'}
-                      </Text>
-                    </TouchableOpacity>
-                  )}
-                  {!readOnly && (
-                    <TouchableOpacity onPress={() => handleRemoveMember(m)} style={styles.memberRemoveBtn}>
-                      <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
-                    </TouchableOpacity>
-                  )}
+                  <TouchableOpacity
+                    style={[styles.permissionBadge, m.permission === 'edit' && styles.permissionBadgeEdit]}
+                    onPress={() => handleTogglePermission(m)}
+                  >
+                    <Text style={[styles.permissionBadgeText, m.permission === 'edit' && styles.permissionBadgeTextEdit]}>
+                      {m.permission === 'edit' ? 'editar' : 'ver'}
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity onPress={() => handleRemoveMember(m)} style={styles.memberRemoveBtn}>
+                    <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+                  </TouchableOpacity>
                 </View>
               </View>
             ))}
@@ -233,7 +237,7 @@ export const DashboardScreen: React.FC = () => {
         )}
 
         <View style={styles.card}>
-          <NavRow icon="list-outline" label="Ver todas as parcelas" onPress={() => navigation.navigate('Installments', { financingId, readOnly })} theme={theme} styles={styles} />
+          <NavRow icon="list-outline" label="Ver todas as parcelas" onPress={() => navigation.navigate('Installments', { financingId, readOnly: readOnly ?? false })} theme={theme} styles={styles} />
           <View style={styles.sep} />
           <NavRow icon="bar-chart-outline" label="Relatório" onPress={() => navigation.navigate('Report', { financingId })} theme={theme} styles={styles} />
           {!readOnly && (

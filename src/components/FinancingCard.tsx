@@ -9,9 +9,10 @@ interface Props {
   paidCount: number;
   onPress: () => void;
   photoUrl?: string | null;
+  ownerUsername?: string;
 }
 
-export const FinancingCard: React.FC<Props> = ({ financing, paidCount, onPress, photoUrl }) => {
+export const FinancingCard: React.FC<Props> = ({ financing, paidCount, onPress, photoUrl, ownerUsername }) => {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
 
@@ -29,7 +30,12 @@ export const FinancingCard: React.FC<Props> = ({ financing, paidCount, onPress, 
       <View style={styles.body}>
         <View style={styles.titleRow}>
           <Text style={styles.name} numberOfLines={1}>{financing.carName}</Text>
-          {financing.licensePlate ? (
+          {ownerUsername ? (
+            <View style={styles.ownerBadge}>
+              <Ionicons name="person" size={10} color={theme.accentDark} />
+              <Text style={styles.ownerText}>{ownerUsername}</Text>
+            </View>
+          ) : financing.licensePlate ? (
             <View style={styles.plateBadge}>
               <Text style={styles.plateText}>{financing.licensePlate}</Text>
             </View>
@@ -61,6 +67,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   name: { fontSize: 16, fontWeight: '700', color: theme.text, flexShrink: 1 },
   plateBadge: { backgroundColor: theme.bg, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2, borderWidth: 1, borderColor: theme.border },
   plateText: { fontSize: 11, fontWeight: '700', color: theme.textSecondary, letterSpacing: 0.5 },
+  ownerBadge: { flexDirection: 'row', alignItems: 'center', gap: 3, backgroundColor: theme.accentSubtle, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  ownerText: { fontSize: 11, fontWeight: '700', color: theme.accentDark },
   bank: { fontSize: 13, color: theme.textSecondary },
   progressRow: { flexDirection: 'row', alignItems: 'center', gap: 8, marginTop: 2 },
   progressBar: { flex: 1, height: 5, borderRadius: 3, backgroundColor: theme.separator, overflow: 'hidden' },

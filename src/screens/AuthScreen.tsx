@@ -56,8 +56,8 @@ export const AuthScreen: React.FC = () => {
     try {
       if (mode === 'register') {
         await authService.signUp(u, e, p);
-        await startPendingWatch(u);
-        setScreen('pending');
+        resetToLogin();
+        Alert.alert('Conta criada!', 'Sua conta foi criada e aguarda aprovação de um administrador. Você será notificado quando sua conta for aprovada. Faça login para continuar.');
       } else {
         await authService.signIn(u, p);
       }
