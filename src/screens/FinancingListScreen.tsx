@@ -32,6 +32,7 @@ export const FinancingListScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
+  const [photoMap, setPhotoMap] = useState<Map<string, string | null>>(new Map());
 
   const load = useCallback(async () => {
     const [ownData, sharedShares] = await Promise.all([
@@ -84,9 +85,15 @@ export const FinancingListScreen: React.FC = () => {
     }
 
     if (photoPaths.length > 0) {
-      await Promise.all(
+      const cachedUrls = await Promise.all(
         photoPaths.map(path => imageService.getOrCachePhoto(path).catch(() => null))
       );
+      // Map each path to its cached base64 URL (or null)
+      var newPhotoMap = new Map<string, string | null>();
+      photoPaths.forEach((p, i) => {
+        newPhotoMap.set(p, cachedUrls[i]);
+      });
+      setPhotoMap(newPhotoMap);
     }
 
     setFinancings(ownData);
@@ -151,10 +158,11 @@ export const FinancingListScreen: React.FC = () => {
           const isReadOnly = item.type === 'shared' && item.financing.permission === 'view';
           return (
             <FinancingCard
-              financing={item.financing}
-              paidCount={paidCounts[item.financing.id] ?? 0}
-              onPress={() => navigation.navigate('Dashboard', { financingId: item.financing.id, readOnly: isReadOnly })}
-            />
++              financing={item.financing}
++              paidCount={paidCounts[item.financing.id] ?? 0}
++              photoUrl={item.financing.carPhotoPath ? photoMap.get(item.financing.carPhotoPath) : null}
++              onPress={() => navigation.navigate('Dashboard', { financingId: item.financing.id, readOnly: isReadOnly })}
++            />
           );
         }}
       />
