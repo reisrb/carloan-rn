@@ -26,7 +26,7 @@ export const FinancingListScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const [financings, setFinancings] = useState<Financing[]>([]);
-  const [sharedFinancings, setSharedFinancings] = useState<Array<Financing & { shareId: string }>>([]);
+  const [sharedFinancings, setSharedFinancings] = useState<Array<Financing & { shareId: string; permission: 'view' | 'edit' }>>([]);
   const [paidCounts, setPaidCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -68,7 +68,7 @@ export const FinancingListScreen: React.FC = () => {
         return acc;
       }, {} as Record<string, any>);
       const shared = sharedShares
-        .map(s => ({ ...sharedDataMap[s.financingId], shareId: s.id }))
+        .map(s => ({ ...sharedDataMap[s.financingId], shareId: s.id, permission: s.permission }))
         .filter(Boolean);
       setSharedFinancings(shared);
     } else {
@@ -129,7 +129,7 @@ export const FinancingListScreen: React.FC = () => {
               </View>
             );
           }
-          const isReadOnly = item.type === 'shared';
+          const isReadOnly = item.type === 'shared' && item.financing.permission === 'view';
           return (
             <FinancingCard
               financing={item.financing}

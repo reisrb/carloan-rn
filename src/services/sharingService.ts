@@ -8,6 +8,7 @@ export interface FinancingShare {
   sharedWithEmail: string;
   sharedWithId: string | null;
   status: 'pending' | 'accepted' | 'rejected';
+  permission: 'view' | 'edit';
   createdAt: number;
 }
 
@@ -15,10 +16,11 @@ export interface FinancingMember {
   shareId: string;
   userId: string;
   username: string;
+  permission: 'view' | 'edit';
 }
 
 export const sharingService = {
-  async sendInvite(financingId: string, username: string): Promise<void> {
+  async sendInvite(financingId: string, username: string, permission: 'view' | 'edit' = 'view'): Promise<void> {
     const userId = await getUserId();
     const { data: target } = await supabase
       .from('profiles')
@@ -41,6 +43,7 @@ export const sharingService = {
       shared_with_email: target.email,
       shared_with_id: target.id,
       status: 'accepted',
+      permission,
       created_at: Date.now(),
     });
     if (error) throw error;
@@ -49,7 +52,7 @@ export const sharingService = {
   async getMembers(financingId: string): Promise<FinancingMember[]> {
     const { data, error } = await supabase
       .from('financing_shares')
-      .select('id, shared_with_id')
+      .select('id, shared_with_id, permission')
       .eq('financing_id', financingId)
       .eq('status', 'accepted');
     if (error || !data?.length) return [];
@@ -63,9 +66,22 @@ export const sharingService = {
       .map((r: any) => {
         const profile = (profiles ?? []).find((p: any) => p.id === r.shared_with_id);
         if (!profile) return null;
-        return { shareId: r.id, userId: profile.id, username: profile.username } as FinancingMember;
+        return {
+          shareId: r.id,
+          userId: profile.id,
+          username: profile.username,
+          permission: (r.permission ?? 'view') as 'view' | 'edit',
+        } as FinancingMember;
       })
       .filter((m): m is FinancingMember => m !== null);
+  },
+
+  async updateMemberPermission(shareId: string, permission: 'view' | 'edit'): Promise<void> {
+    const { error } = await supabase
+      .from('financing_shares')
+      .update({ permission })
+      .eq('id', shareId);
+    if (error) throw error;
   },
 
   async getSharedWithMe(): Promise<FinancingShare[]> {
@@ -84,6 +100,7 @@ export const sharingService = {
       sharedWithEmail: row.shared_with_email,
       sharedWithId: row.shared_with_id,
       status: row.status,
+      permission: (row.permission ?? 'view') as 'view' | 'edit',
       createdAt: row.created_at,
     }));
   },

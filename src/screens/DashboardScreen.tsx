@@ -32,6 +32,7 @@ export const DashboardScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareUsername, setShareUsername] = useState('');
+  const [sharePermission, setSharePermission] = useState<'view' | 'edit'>('view');
   const [userSuggestions, setUserSuggestions] = useState<string[]>([]);
   const [sharing, setSharing] = useState(false);
   const [members, setMembers] = useState<FinancingMember[]>([]);
@@ -91,16 +92,28 @@ export const DashboardScreen: React.FC = () => {
     }
     setSharing(true);
     try {
-      await sharingService.sendInvite(financingId, shareUsername.trim());
+      await sharingService.sendInvite(financingId, shareUsername.trim(), sharePermission);
       const newMembers = await sharingService.getMembers(financingId);
       setMembers(newMembers);
       setShareUsername('');
+      setSharePermission('view');
       setUserSuggestions([]);
       setShowShareModal(false);
     } catch (e: any) {
       showAlert('Erro', e?.message ?? 'Tente novamente');
     } finally {
       setSharing(false);
+    }
+  };
+
+  const handleTogglePermission = async (member: FinancingMember) => {
+    const next: 'view' | 'edit' = member.permission === 'view' ? 'edit' : 'view';
+    setMembers(cur => cur.map(m => m.shareId === member.shareId ? { ...m, permission: next } : m));
+    try {
+      await sharingService.updateMemberPermission(member.shareId, next);
+    } catch (e: any) {
+      setMembers(cur => cur.map(m => m.shareId === member.shareId ? { ...m, permission: member.permission } : m));
+      showAlert('Erro', e?.message ?? 'Não foi possível alterar a permissão');
     }
   };
 
@@ -199,6 +212,16 @@ export const DashboardScreen: React.FC = () => {
                   </View>
                   <Text style={styles.memberUsername}>@{m.username}</Text>
                   {!readOnly && (
+                    <TouchableOpacity
+                      style={[styles.permissionBadge, m.permission === 'edit' && styles.permissionBadgeEdit]}
+                      onPress={() => handleTogglePermission(m)}
+                    >
+                      <Text style={[styles.permissionBadgeText, m.permission === 'edit' && styles.permissionBadgeTextEdit]}>
+                        {m.permission === 'edit' ? 'editar' : 'ver'}
+                      </Text>
+                    </TouchableOpacity>
+                  )}
+                  {!readOnly && (
                     <TouchableOpacity onPress={() => handleRemoveMember(m)} style={styles.memberRemoveBtn}>
                       <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
                     </TouchableOpacity>
@@ -259,6 +282,23 @@ export const DashboardScreen: React.FC = () => {
                 ))}
               </View>
             )}
+            <View style={styles.permissionPicker}>
+              <Text style={styles.permissionPickerLabel}>Permissão</Text>
+              <View style={styles.permissionPickerBtns}>
+                <TouchableOpacity
+                  style={[styles.permissionPickerBtn, sharePermission === 'view' && styles.permissionPickerBtnActive]}
+                  onPress={() => setSharePermission('view')}
+                >
+                  <Text style={[styles.permissionPickerBtnText, sharePermission === 'view' && styles.permissionPickerBtnTextActive]}>Ver</Text>
+                </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.permissionPickerBtn, sharePermission === 'edit' && styles.permissionPickerBtnActive]}
+                  onPress={() => setSharePermission('edit')}
+                >
+                  <Text style={[styles.permissionPickerBtnText, sharePermission === 'edit' && styles.permissionPickerBtnTextActive]}>Ver e editar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
             <View style={styles.shareModalBtns}>
               <TouchableOpacity style={styles.shareBtnCancel} onPress={() => { setShowShareModal(false); setShareUsername(''); setUserSuggestions([]); }} disabled={sharing}>
                 <Text style={styles.shareBtnCancelText}>Cancelar</Text>
@@ -346,4 +386,15 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   memberAvatar: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   memberUsername: { fontSize: 14, fontWeight: '600', color: theme.text, flex: 1 },
   memberRemoveBtn: { padding: 4 },
+  permissionBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10, backgroundColor: theme.separator, borderWidth: 1, borderColor: theme.border },
+  permissionBadgeEdit: { backgroundColor: theme.accent + '25', borderColor: theme.accentDark + '55' },
+  permissionBadgeText: { fontSize: 11, fontWeight: '700', color: theme.textSecondary },
+  permissionBadgeTextEdit: { color: theme.accentDark },
+  permissionPicker: { gap: 8 },
+  permissionPickerLabel: { fontSize: 12, fontWeight: '600', color: theme.textSecondary },
+  permissionPickerBtns: { flexDirection: 'row', gap: 8 },
+  permissionPickerBtn: { flex: 1, paddingVertical: 8, borderRadius: 10, alignItems: 'center', backgroundColor: theme.bg, borderWidth: 1, borderColor: theme.border },
+  permissionPickerBtnActive: { backgroundColor: theme.accent + '25', borderColor: theme.accentDark },
+  permissionPickerBtnText: { fontSize: 13, fontWeight: '600', color: theme.textSecondary },
+  permissionPickerBtnTextActive: { color: theme.accentDark },
 });
