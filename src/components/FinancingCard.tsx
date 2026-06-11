@@ -19,7 +19,7 @@ export const FinancingCard: React.FC<Props> = ({ financing, paidCount, onPress }
   useEffect(() => {
     let active = true;
     if (financing.carPhotoPath) {
-      imageService.getSignedUrl(financing.carPhotoPath).then(url => {
+      imageService.getOrCachePhoto(financing.carPhotoPath).then(url => {
         if (active) setPhotoUrl(url);
       });
     } else {

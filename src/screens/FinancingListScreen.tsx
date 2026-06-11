@@ -12,6 +12,7 @@ import { Financing, FinancingShare } from '../types';
 import { financingService } from '../services/financingService';
 import { sharingService } from '../services/sharingService';
 import { supabase } from '../lib/supabase';
+import { imageService } from '../services/imageService';
 import { FinancingCard } from '../components/FinancingCard';
 import { AddFinancingSheet } from '../components/AddFinancingSheet';
 import { RootStackParamList, TAB_BAR_BOTTOM_OFFSET } from '../navigation';
@@ -37,7 +38,6 @@ export const FinancingListScreen: React.FC = () => {
       financingService.getAll(),
       sharingService.getSharedWithMe(),
     ]);
-    setFinancings(ownData);
 
     const allIds = [...ownData.map(f => f.id)];
     if (sharedShares.length > 0) {
@@ -55,8 +55,12 @@ export const FinancingListScreen: React.FC = () => {
         counts[fid] = (counts[fid] ?? 0) + 1;
       }
     }
-    setPaidCounts(counts);
 
+    const photoPaths: string[] = ownData
+      .filter(f => f.carPhotoPath)
+      .map(f => f.carPhotoPath as string);
+
+    let sharedResult: any[] = [];
     if (sharedShares.length > 0) {
       const sharedIds = sharedShares.map(s => s.financingId);
       const { data: sharedData } = await supabase
@@ -67,17 +71,32 @@ export const FinancingListScreen: React.FC = () => {
         acc[f.id] = f;
         return acc;
       }, {} as Record<string, any>);
-      const shared = sharedShares
-        .map(s => ({ ...sharedDataMap[s.financingId], shareId: s.id, permission: s.permission }))
-        .filter(Boolean);
-      setSharedFinancings(shared);
-    } else {
-      setSharedFinancings([]);
+      sharedResult = sharedShares
+        .map(s => {
+          const f = sharedDataMap[s.financingId];
+          return f ? { ...f, shareId: s.id, permission: s.permission } : null;
+        })
+        .filter(Boolean) as any[];
+
+      for (const f of sharedResult) {
+        if (f.carPhotoPath) photoPaths.push(f.carPhotoPath);
+      }
     }
+
+    if (photoPaths.length > 0) {
+      await Promise.all(
+        photoPaths.map(path => imageService.getOrCachePhoto(path).catch(() => null))
+      );
+    }
+
+    setFinancings(ownData);
+    setPaidCounts(counts);
+    setSharedFinancings(sharedResult);
   }, []);
 
   useFocusEffect(useCallback(() => {
     showTabBar();
+    setLoading(true);
     load().catch(() => null).finally(() => setLoading(false));
   }, [load]));
 
