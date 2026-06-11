@@ -11,7 +11,8 @@ import { useResponsive } from '../hooks/useResponsive';
 import { FinancingWithInstallments, Installment, isCurrentMonth } from '../types';
 import { financingService } from '../services/financingService';
 import { installmentService } from '../services/installmentService';
-import { sharingService } from '../services/sharingService';
+import { sharingService, FinancingMember } from '../services/sharingService';
+import { adminService } from '../services/adminService';
 import { RootStackParamList, TAB_BAR_BOTTOM_OFFSET } from '../navigation';
 import { formatDate, daysUntil } from '../utils/date';
 import { showAlert, showConfirm } from '../utils/dialogs';
@@ -30,12 +31,18 @@ export const DashboardScreen: React.FC = () => {
   const [financing, setFinancing] = useState<FinancingWithInstallments | null>(null);
   const [loading, setLoading] = useState(true);
   const [showShareModal, setShowShareModal] = useState(false);
-  const [shareEmail, setShareEmail] = useState('');
+  const [shareUsername, setShareUsername] = useState('');
+  const [userSuggestions, setUserSuggestions] = useState<string[]>([]);
   const [sharing, setSharing] = useState(false);
+  const [members, setMembers] = useState<FinancingMember[]>([]);
 
   const load = useCallback(async () => {
-    const data = await financingService.getById(financingId);
+    const [data, mbrs] = await Promise.all([
+      financingService.getById(financingId),
+      sharingService.getMembers(financingId),
+    ]);
     setFinancing(data);
+    setMembers(mbrs);
   }, [financingId]);
 
   useFocusEffect(useCallback(() => {
@@ -78,21 +85,39 @@ export const DashboardScreen: React.FC = () => {
   };
 
   const handleShare = async () => {
-    if (!shareEmail.trim()) {
-      showAlert('Email vazio', 'Digite um email válido');
+    if (!shareUsername.trim()) {
+      showAlert('Username vazio', 'Digite um username válido');
       return;
     }
     setSharing(true);
     try {
-      await sharingService.sendInvite(financingId, shareEmail.trim());
-      showAlert('Sucesso', `Convite enviado para ${shareEmail}`);
-      setShareEmail('');
+      await sharingService.sendInvite(financingId, shareUsername.trim());
+      const newMembers = await sharingService.getMembers(financingId);
+      setMembers(newMembers);
+      setShareUsername('');
+      setUserSuggestions([]);
       setShowShareModal(false);
     } catch (e: any) {
       showAlert('Erro', e?.message ?? 'Tente novamente');
     } finally {
       setSharing(false);
     }
+  };
+
+  const handleRemoveMember = (member: FinancingMember) => {
+    showConfirm(
+      `Remover @${member.username}?`,
+      'Essa pessoa perderá o acesso ao financiamento.',
+      'Remover',
+      async () => {
+        try {
+          await sharingService.removeShare(member.shareId);
+          setMembers(cur => cur.filter(m => m.shareId !== member.shareId));
+        } catch (e: any) {
+          showAlert('Erro', e?.message ?? 'Não foi possível remover');
+        }
+      },
+    );
   };
 
   const days = featured ? daysUntil(featured.dueDate) : 0;
@@ -162,6 +187,28 @@ export const DashboardScreen: React.FC = () => {
           </View>
         )}
 
+        {members.length > 0 && (
+          <View style={styles.card}>
+            <Text style={styles.membersTitle}>Compartilhado com</Text>
+            {members.map((m, idx) => (
+              <View key={m.shareId}>
+                {idx > 0 && <View style={styles.sep} />}
+                <View style={styles.memberRow}>
+                  <View style={[styles.memberAvatar, { backgroundColor: theme.accent + '30' }]}>
+                    <Ionicons name="person" size={13} color={theme.accentDark} />
+                  </View>
+                  <Text style={styles.memberUsername}>@{m.username}</Text>
+                  {!readOnly && (
+                    <TouchableOpacity onPress={() => handleRemoveMember(m)} style={styles.memberRemoveBtn}>
+                      <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+                    </TouchableOpacity>
+                  )}
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
         <View style={styles.card}>
           <NavRow icon="list-outline" label="Ver todas as parcelas" onPress={() => navigation.navigate('Installments', { financingId, readOnly })} theme={theme} styles={styles} />
           <View style={styles.sep} />
@@ -175,26 +222,48 @@ export const DashboardScreen: React.FC = () => {
         </View>
       </ScrollView>
 
-      <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => setShowShareModal(false)}>
+      <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => { setShowShareModal(false); setShareUsername(''); setUserSuggestions([]); }}>
         <View style={styles.modalOverlay}>
           <View style={styles.shareModal}>
             <Text style={styles.shareModalTitle}>Compartilhar financiamento</Text>
-            <Text style={styles.shareModalSub}>Digite o email de quem você quer compartilhar.</Text>
+            <Text style={styles.shareModalSub}>Digite o username de quem você quer compartilhar.</Text>
             <TextInput
               style={styles.shareInput}
-              placeholder="email@example.com"
+              placeholder="username"
               placeholderTextColor={theme.textSecondary}
-              value={shareEmail}
-              onChangeText={setShareEmail}
+              value={shareUsername}
+              onChangeText={async (v) => {
+                setShareUsername(v);
+                if (v.trim().length >= 2) {
+                  const results = await adminService.searchUsernames(v.trim());
+                  setUserSuggestions(results);
+                } else {
+                  setUserSuggestions([]);
+                }
+              }}
               editable={!sharing}
-              keyboardType="email-address"
               autoCapitalize="none"
+              autoCorrect={false}
             />
+            {userSuggestions.length > 0 && (
+              <View style={styles.suggestionsBox}>
+                {userSuggestions.map(u => (
+                  <TouchableOpacity
+                    key={u}
+                    style={styles.suggestionRow}
+                    onPress={() => { setShareUsername(u); setUserSuggestions([]); }}
+                  >
+                    <Ionicons name="person-circle-outline" size={18} color={theme.accentDark} />
+                    <Text style={styles.suggestionUser}>@{u}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+            )}
             <View style={styles.shareModalBtns}>
-              <TouchableOpacity style={styles.shareBtnCancel} onPress={() => setShowShareModal(false)} disabled={sharing}>
+              <TouchableOpacity style={styles.shareBtnCancel} onPress={() => { setShowShareModal(false); setShareUsername(''); setUserSuggestions([]); }} disabled={sharing}>
                 <Text style={styles.shareBtnCancelText}>Cancelar</Text>
               </TouchableOpacity>
-              <TouchableOpacity style={styles.shareBtnConfirm} onPress={handleShare} disabled={sharing}>
+              <TouchableOpacity style={[styles.shareBtnConfirm, (!shareUsername.trim() || sharing) && { opacity: 0.4 }]} onPress={handleShare} disabled={sharing || !shareUsername.trim()}>
                 {sharing ? (
                   <ActivityIndicator size="small" color="#000" />
                 ) : (
@@ -269,4 +338,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   shareBtnCancelText: { fontSize: 15, fontWeight: '600', color: theme.textSecondary },
   shareBtnConfirm: { paddingHorizontal: 18, paddingVertical: 10, borderRadius: 12, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center', minWidth: 90 },
   shareBtnConfirmText: { fontSize: 15, fontWeight: '700', color: '#000' },
+  suggestionsBox: { backgroundColor: theme.bg, borderRadius: 10, overflow: 'hidden', borderWidth: 1, borderColor: theme.border, marginTop: -4 },
+  suggestionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: theme.separator },
+  suggestionUser: { fontSize: 14, fontWeight: '600', color: theme.text },
+  membersTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, color: theme.textSecondary, textTransform: 'uppercase', marginBottom: 8 },
+  memberRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
+  memberAvatar: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
+  memberUsername: { fontSize: 14, fontWeight: '600', color: theme.text, flex: 1 },
+  memberRemoveBtn: { padding: 4 },
 });

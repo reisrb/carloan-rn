@@ -11,18 +11,61 @@ export interface FinancingShare {
   createdAt: number;
 }
 
+export interface FinancingMember {
+  shareId: string;
+  userId: string;
+  username: string;
+}
+
 export const sharingService = {
-  async sendInvite(financingId: string, email: string): Promise<void> {
+  async sendInvite(financingId: string, username: string): Promise<void> {
     const userId = await getUserId();
+    const { data: target } = await supabase
+      .from('profiles')
+      .select('id, email')
+      .eq('username', username.toLowerCase().trim())
+      .maybeSingle();
+    if (!target) throw new Error(`Usuário "@${username}" não encontrado`);
+    if (target.id === userId) throw new Error('Não é possível compartilhar consigo mesmo');
+    const { data: existing } = await supabase
+      .from('financing_shares')
+      .select('id')
+      .eq('financing_id', financingId)
+      .eq('shared_with_id', target.id)
+      .maybeSingle();
+    if (existing) throw new Error(`@${username} já tem acesso a este financiamento`);
     const { error } = await supabase.from('financing_shares').insert({
       id: generateId(),
       financing_id: financingId,
       shared_by: userId,
-      shared_with_email: email,
-      status: 'pending',
+      shared_with_email: target.email,
+      shared_with_id: target.id,
+      status: 'accepted',
       created_at: Date.now(),
     });
     if (error) throw error;
+  },
+
+  async getMembers(financingId: string): Promise<FinancingMember[]> {
+    const { data, error } = await supabase
+      .from('financing_shares')
+      .select('id, shared_with_id')
+      .eq('financing_id', financingId)
+      .eq('status', 'accepted');
+    if (error || !data?.length) return [];
+    const ids = data.map((r: any) => r.shared_with_id).filter(Boolean);
+    if (!ids.length) return [];
+    const { data: profiles } = await supabase
+      .from('profiles')
+      .select('id, username')
+      .in('id', ids);
+    return data
+      .map((r: any) => {
+        const profile = (profiles ?? []).find((p: any) => p.id === r.shared_with_id);
+        if (!profile) return null;
+        return { shareId: r.id, userId: profile.id, username: profile.username } as FinancingMember;
+      })
+      .filter((m): m is FinancingMember => m !== null);
   },
 
   async getSharedWithMe(): Promise<FinancingShare[]> {
