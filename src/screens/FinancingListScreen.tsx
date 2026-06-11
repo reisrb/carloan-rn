@@ -161,7 +161,7 @@ export const FinancingListScreen: React.FC = () => {
               financing={item.financing}
               paidCount={paidCounts[item.financing.id] ?? 0}
               photoUrl={item.financing.carPhotoPath ? photoMap.get(item.financing.carPhotoPath) : null}
-              onPress={() => navigation.navigate('Dashboard', { financingId: item.financing.id, readOnly: isReadOnly })
+              onPress={() => navigation.navigate('Dashboard', { financingId: item.financing.id, readOnly: isReadOnly })}
             />
           );
         }}
