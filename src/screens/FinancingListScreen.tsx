@@ -158,11 +158,11 @@ export const FinancingListScreen: React.FC = () => {
           const isReadOnly = item.type === 'shared' && item.financing.permission === 'view';
           return (
             <FinancingCard
-+              financing={item.financing}
-+              paidCount={paidCounts[item.financing.id] ?? 0}
-+              photoUrl={item.financing.carPhotoPath ? photoMap.get(item.financing.carPhotoPath) : null}
-+              onPress={() => navigation.navigate('Dashboard', { financingId: item.financing.id, readOnly: isReadOnly })}
-+            />
+              financing={item.financing}
+              paidCount={paidCounts[item.financing.id] ?? 0}
+              photoUrl={item.financing.carPhotoPath ? photoMap.get(item.financing.carPhotoPath) : null}
+              onPress={() => navigation.navigate('Dashboard', { financingId: item.financing.id, readOnly: isReadOnly })
+            />
           );
         }}
       />
