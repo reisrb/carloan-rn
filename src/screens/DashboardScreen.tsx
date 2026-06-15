@@ -36,6 +36,7 @@ export const DashboardScreen: React.FC = () => {
   const [userSuggestions, setUserSuggestions] = useState<string[]>([]);
   const [sharing, setSharing] = useState(false);
   const [members, setMembers] = useState<FinancingMember[]>([]);
+  const [showInfo, setShowInfo] = useState(false);
 
   const load = useCallback(async () => {
     const [data, mbrs] = await Promise.all([
@@ -143,6 +144,11 @@ export const DashboardScreen: React.FC = () => {
         </TouchableOpacity>
         <Text style={styles.topTitle} numberOfLines={1}>{financing.carName}</Text>
         <View style={styles.topButtonsGroup}>
+          {readOnly && (
+            <TouchableOpacity onPress={() => setShowInfo(true)} style={styles.topBtn}>
+              <Ionicons name="information-circle-outline" size={24} color={theme.accentDark} />
+            </TouchableOpacity>
+          )}
           {!readOnly && (
             <TouchableOpacity onPress={() => navigation.navigate('EditFinancing', { financingId })} style={styles.topBtn}>
               <Ionicons name="pencil" size={20} color={theme.accentDark} />
@@ -248,6 +254,28 @@ export const DashboardScreen: React.FC = () => {
           )}
         </View>
       </ScrollView>
+
+      <Modal visible={showInfo} transparent animationType="fade" onRequestClose={() => setShowInfo(false)}>
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowInfo(false)}>
+          <TouchableOpacity activeOpacity={1} style={styles.infoModal}>
+            <Text style={styles.shareModalTitle}>Sobre o financiamento</Text>
+            <View style={{ gap: 2, marginTop: 8 }}>
+              <Row label="Veículo" value={financing.carName} theme={theme} />
+              {financing.licensePlate ? <Row label="Placa" value={financing.licensePlate} theme={theme} /> : null}
+              {financing.bank ? <Row label="Banco" value={financing.bank} theme={theme} /> : null}
+              {financing.vehicleValue > 0 && <Row label="Valor do veículo" value={formatBRL(financing.vehicleValue)} theme={theme} />}
+              {financing.downPayment > 0 && <Row label="Entrada" value={formatBRL(financing.downPayment)} theme={theme} />}
+              {financing.monthlyRate > 0 && <Row label="Taxa mensal" value={`${financing.monthlyRate.toFixed(2)}%`} theme={theme} />}
+              <Row label="Parcelas" value={`${financing.totalInstallments}x`} theme={theme} />
+              <Row label="1ª parcela" value={formatDate(financing.firstDueDate)} theme={theme} />
+              {ownerUsername ? <Row label="Dono" value={`@${ownerUsername}`} theme={theme} /> : null}
+            </View>
+            <TouchableOpacity style={styles.infoCloseBtn} onPress={() => setShowInfo(false)}>
+              <Text style={styles.infoCloseBtnText}>Fechar</Text>
+            </TouchableOpacity>
+          </TouchableOpacity>
+        </TouchableOpacity>
+      </Modal>
 
       <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => { setShowShareModal(false); setShareUsername(''); setUserSuggestions([]); }}>
         <View style={styles.modalOverlay}>
@@ -401,4 +429,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   permissionPickerBtnActive: { backgroundColor: theme.accent + '25', borderColor: theme.accentDark },
   permissionPickerBtnText: { fontSize: 13, fontWeight: '600', color: theme.textSecondary },
   permissionPickerBtnTextActive: { color: theme.accentDark },
+  infoModal: { width: '100%', maxWidth: 400, backgroundColor: theme.card, borderRadius: 20, padding: 24, gap: 4 },
+  infoCloseBtn: { marginTop: 16, backgroundColor: theme.accent, borderRadius: 12, paddingVertical: 12, alignItems: 'center' },
+  infoCloseBtnText: { fontSize: 15, fontWeight: '700', color: '#000' },
 });
