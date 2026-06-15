@@ -266,7 +266,7 @@ export const DashboardScreen: React.FC = () => {
               {financing.vehicleValue > 0 && <Row label="Valor do veículo" value={formatBRL(financing.vehicleValue)} theme={theme} />}
               {financing.downPayment > 0 && <Row label="Entrada" value={formatBRL(financing.downPayment)} theme={theme} />}
               {financing.monthlyRate > 0 && <Row label="Taxa mensal" value={`${financing.monthlyRate.toFixed(2)}%`} theme={theme} />}
-              <Row label="Parcelas" value={`${financing.totalInstallments}x`} theme={theme} />
+              <Row label="Parcelas" value={`${financing.totalInstallments}x de ${formatBRL(financing.installments[0]?.amount ?? 0)}`} theme={theme} />
               <Row label="1ª parcela" value={formatDate(financing.firstDueDate)} theme={theme} />
               {ownerUsername ? <Row label="Dono" value={`@${ownerUsername}`} theme={theme} /> : null}
             </View>
