@@ -12,7 +12,6 @@ import { Financing } from '../types';
 import { financingService } from '../services/financingService';
 import { sharingService } from '../services/sharingService';
 import { supabase } from '../lib/supabase';
-import { imageService } from '../services/imageService';
 import { FinancingCard } from '../components/FinancingCard';
 import { AddFinancingSheet } from '../components/AddFinancingSheet';
 import { RootStackParamList, TAB_BAR_BOTTOM_OFFSET } from '../navigation';
@@ -32,7 +31,6 @@ export const FinancingListScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [showAdd, setShowAdd] = useState(false);
-  const [photoMap, setPhotoMap] = useState<Map<string, string | null>>(new Map());
 
   const load = useCallback(async () => {
     const [ownData, sharedShares] = await Promise.all([
@@ -57,10 +55,6 @@ export const FinancingListScreen: React.FC = () => {
       }
     }
 
-    const photoPaths: string[] = ownData
-      .filter(f => f.carPhotoPath)
-      .map(f => f.carPhotoPath as string);
-
     let sharedResult: Array<Financing & { shareId: string; permission: 'view' | 'edit'; ownerUsername?: string }> = [];
     if (sharedShares.length > 0) {
       const sharedIds = sharedShares.map(s => s.financingId);
@@ -72,22 +66,6 @@ export const FinancingListScreen: React.FC = () => {
           return f ? { ...f, shareId: s.id, permission: s.permission, ownerUsername: s.ownerUsername } : null;
         })
         .filter((x): x is typeof sharedResult[0] => x !== null);
-
-      for (const f of sharedResult) {
-        if (f.carPhotoPath) photoPaths.push(f.carPhotoPath);
-      }
-    }
-
-    if (photoPaths.length > 0) {
-      const cachedUrls = await Promise.all(
-        photoPaths.map(path => imageService.getOrCachePhoto(path).catch(() => null))
-      );
-      // Map each path to its cached base64 URL (or null)
-      var newPhotoMap = new Map<string, string | null>();
-      photoPaths.forEach((p, i) => {
-        newPhotoMap.set(p, cachedUrls[i]);
-      });
-      setPhotoMap(newPhotoMap);
     }
 
     setFinancings(ownData);
@@ -155,7 +133,6 @@ export const FinancingListScreen: React.FC = () => {
             <FinancingCard
               financing={item.financing}
               paidCount={paidCounts[item.financing.id] ?? 0}
-              photoUrl={item.financing.carPhotoPath ? photoMap.get(item.financing.carPhotoPath) : null}
               ownerUsername={ownerUsername}
               onPress={() => navigation.navigate('Dashboard', { financingId: item.financing.id, readOnly: isReadOnly, ownerUsername })}
             />

@@ -1,20 +1,33 @@
-import React, { useMemo } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, TouchableOpacity, Image } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useTheme, Theme } from '../theme';
 import { Financing } from '../types';
+import { imageService } from '../services/imageService';
 
 interface Props {
   financing: Financing;
   paidCount: number;
   onPress: () => void;
-  photoUrl?: string | null;
   ownerUsername?: string;
 }
 
-export const FinancingCard: React.FC<Props> = ({ financing, paidCount, onPress, photoUrl, ownerUsername }) => {
+export const FinancingCard: React.FC<Props> = ({ financing, paidCount, onPress, ownerUsername }) => {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
+  const [photoUrl, setPhotoUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    if (financing.carPhotoPath) {
+      imageService.getOrCachePhoto(financing.carPhotoPath).then(url => {
+        if (active) setPhotoUrl(url);
+      });
+    } else {
+      setPhotoUrl(null);
+    }
+    return () => { active = false; };
+  }, [financing.carPhotoPath]);
 
   const progress = financing.totalInstallments > 0 ? paidCount / financing.totalInstallments : 0;
 
