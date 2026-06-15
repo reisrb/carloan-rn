@@ -1,27 +1,36 @@
 import { supabase, getUserId } from '../lib/supabase';
 import { generateId } from '../theme';
 import * as FileSystem from 'expo-file-system';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const BUCKET = 'images';
-const CACHE_DIR = `${FileSystem.documentDirectory}img_cache/`;
+const ASYNC_PREFIX = 'carloan_img2_';
+const TMP_DIR = `${FileSystem.cacheDirectory}img_tmp/`;
 
-// Singleton: ensureCacheDir runs only once per session
-let cacheDirReady: Promise<void> | null = null;
-function getCacheDirReady(): Promise<void> {
-  if (!cacheDirReady) {
-    cacheDirReady = FileSystem.getInfoAsync(CACHE_DIR).then(info => {
-      if (!info.exists) return FileSystem.makeDirectoryAsync(CACHE_DIR, { intermediates: true });
-    });
-  }
-  return cacheDirReady;
-}
-
-// In-memory cache: path → local file URI (avoids disk stat on every load)
+// In-memory layer: path → data URI. Avoids AsyncStorage round-trip within session.
 const memCache = new Map<string, string | null>();
 
-function cacheFilePath(storagePath: string): string {
-  const safe = storagePath.replace(/[^a-zA-Z0-9_-]/g, '_');
-  return `${CACHE_DIR}${safe}.jpg`;
+let tmpDirReady: Promise<void> | null = null;
+function getTmpDirReady(): Promise<void> {
+  if (!tmpDirReady) {
+    tmpDirReady = FileSystem.getInfoAsync(TMP_DIR).then(info => {
+      if (!info.exists) return FileSystem.makeDirectoryAsync(TMP_DIR, { intermediates: true });
+    });
+  }
+  return tmpDirReady;
+}
+
+async function downloadAsBase64(signedUrl: string): Promise<string | null> {
+  await getTmpDirReady();
+  const tmp = `${TMP_DIR}${generateId()}.jpg`;
+  try {
+    const dl = await FileSystem.downloadAsync(signedUrl, tmp);
+    if (dl.status !== 200) return null;
+    const b64 = await FileSystem.readAsStringAsync(tmp, { encoding: FileSystem.EncodingType.Base64 });
+    return b64 ? `data:image/jpeg;base64,${b64}` : null;
+  } finally {
+    FileSystem.deleteAsync(tmp, { idempotent: true }).catch(() => null);
+  }
 }
 
 async function uriToArrayBuffer(uri: string): Promise<ArrayBuffer> {
@@ -60,26 +69,27 @@ export const imageService = {
   },
 
   async getOrCachePhoto(path: string): Promise<string | null> {
-    // Memory hit: instant
+    // 1. Memory hit — instant, no I/O
     if (memCache.has(path)) return memCache.get(path) ?? null;
 
+    // 2. AsyncStorage hit — fast, no network
     try {
-      await getCacheDirReady();
-      const localPath = cacheFilePath(path);
-      const info = await FileSystem.getInfoAsync(localPath);
-      if (info.exists) {
-        memCache.set(path, localPath);
-        return localPath;
+      const stored = await AsyncStorage.getItem(ASYNC_PREFIX + path);
+      if (stored) {
+        memCache.set(path, stored);
+        return stored;
       }
+    } catch { /* ignore */ }
 
-      // Disk miss: download once and persist
+    // 3. Network miss — download, encode, persist
+    try {
       const signedUrl = await this.getSignedUrl(path);
       if (!signedUrl) { memCache.set(path, null); return null; }
 
-      const result = await FileSystem.downloadAsync(signedUrl, localPath);
-      const uri = result.status === 200 ? result.uri : null;
-      memCache.set(path, uri);
-      return uri;
+      const dataUri = await downloadAsBase64(signedUrl);
+      memCache.set(path, dataUri);
+      if (dataUri) AsyncStorage.setItem(ASYNC_PREFIX + path, dataUri).catch(() => null);
+      return dataUri;
     } catch {
       return this.getSignedUrl(path);
     }
@@ -88,10 +98,6 @@ export const imageService = {
   async remove(path: string): Promise<void> {
     await supabase.storage.from(BUCKET).remove([path]);
     memCache.delete(path);
-    try {
-      await FileSystem.deleteAsync(cacheFilePath(path), { idempotent: true });
-    } catch {
-      // ignore
-    }
+    AsyncStorage.removeItem(ASYNC_PREFIX + path).catch(() => null);
   },
 };
