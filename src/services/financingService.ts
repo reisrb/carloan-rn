@@ -109,6 +109,16 @@ export const financingService = {
     return (data as FinancingRow[]).map(toFinancing);
   },
 
+  async getByIds(ids: string[]): Promise<Financing[]> {
+    if (!ids.length) return [];
+    const { data, error } = await supabase
+      .from('financings')
+      .select('*')
+      .in('id', ids);
+    if (error) throw new Error(error.message);
+    return (data as FinancingRow[]).map(toFinancing);
+  },
+
   async getInstallments(financingId: string): Promise<Installment[]> {
     const { data: instRows, error } = await supabase
       .from('installments')

@@ -88,6 +88,7 @@ export const InstallmentListScreen: React.FC = () => {
           <View style={[styles.rowCard, index === 0 && { marginTop: 4 }]}>
             <InstallmentRowItem
               installment={item}
+              readOnly={readOnly}
               onPress={() => navigation.navigate('InstallmentDetail', { financingId, installmentId: item.id, readOnly })}
             />
           </View>

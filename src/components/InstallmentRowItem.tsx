@@ -14,10 +14,11 @@ const STATUS_ICONS = {
 
 interface Props {
   installment: Installment;
+  readOnly?: boolean;
   onPress: () => void;
 }
 
-export const InstallmentRowItem: React.FC<Props> = ({ installment, onPress }) => {
+export const InstallmentRowItem: React.FC<Props> = ({ installment, readOnly, onPress }) => {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const status = installmentStatus(installment);
@@ -32,7 +33,12 @@ export const InstallmentRowItem: React.FC<Props> = ({ installment, onPress }) =>
       </View>
       <View style={styles.right}>
         <Text style={styles.amount}>{formatBRL(installment.amount)}</Text>
-        <Text style={styles.balance}>Saldo {formatBRL(installment.remainingBalance)}</Text>
+        <View style={styles.rightSub}>
+          <Text style={styles.balance}>Saldo {formatBRL(installment.remainingBalance)}</Text>
+          {readOnly && status !== 'paid' && (
+            <Ionicons name="lock-closed" size={10} color={theme.textTertiary} />
+          )}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -44,6 +50,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   number: { fontSize: 15, fontWeight: '600', color: theme.text },
   date: { fontSize: 12, color: theme.textSecondary },
   right: { alignItems: 'flex-end', gap: 2 },
+  rightSub: { flexDirection: 'row', alignItems: 'center', gap: 4 },
   amount: { fontSize: 15, fontWeight: '700', color: theme.text },
   balance: { fontSize: 11, color: theme.textTertiary },
 });

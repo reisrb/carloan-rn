@@ -21,6 +21,7 @@ export const AuthScreen: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const unsubRef = useRef<(() => void) | null>(null);
 
   useEffect(() => () => { unsubRef.current?.(); }, []);
@@ -31,6 +32,7 @@ export const AuthScreen: React.FC = () => {
     setScreen('login');
     setMode('login');
     setUsername(''); setEmail(''); setPassword('');
+    setErrorMsg(null);
   };
 
   const startPendingWatch = async (identifier: string) => {
@@ -53,6 +55,7 @@ export const AuthScreen: React.FC = () => {
     }
 
     setLoading(true);
+    setErrorMsg(null);
     try {
       if (mode === 'register') {
         await authService.signUp(u, e, p);
@@ -63,12 +66,8 @@ export const AuthScreen: React.FC = () => {
       }
     } catch (err: any) {
       const msg: string = err.message ?? 'Erro desconhecido';
-      if (msg.includes('aguardando aprovação')) {
-        await startPendingWatch(u);
-        setScreen('pending');
-      } else {
-        Alert.alert('Erro', msg);
-      }
+      setErrorMsg(msg);
+      if (msg.includes('aguardando aprovação')) startPendingWatch(u);
     } finally {
       setLoading(false);
     }
@@ -143,7 +142,7 @@ export const AuthScreen: React.FC = () => {
             <TextInput
               style={styles.input}
               value={username}
-              onChangeText={setUsername}
+              onChangeText={v => { setUsername(v); setErrorMsg(null); }}
               autoCapitalize="none"
               autoCorrect={false}
               placeholder={mode === 'register' ? 'Username' : 'Username ou email'}
@@ -157,7 +156,7 @@ export const AuthScreen: React.FC = () => {
                 <TextInput
                   style={styles.input}
                   value={email}
-                  onChangeText={setEmail}
+                  onChangeText={v => { setEmail(v); setErrorMsg(null); }}
                   autoCapitalize="none"
                   autoCorrect={false}
                   keyboardType="email-address"
@@ -172,7 +171,7 @@ export const AuthScreen: React.FC = () => {
             <TextInput
               style={styles.input}
               value={password}
-              onChangeText={setPassword}
+              onChangeText={v => { setPassword(v); setErrorMsg(null); }}
               secureTextEntry
               placeholder={mode === 'register' ? 'Senha (mín. 6 caracteres)' : '••••••'}
               placeholderTextColor={theme.textSecondary}
@@ -193,6 +192,13 @@ export const AuthScreen: React.FC = () => {
             : <Text style={styles.btnText}>{mode === 'login' ? 'Entrar' : 'Criar conta'}</Text>
           }
         </TouchableOpacity>
+
+        {errorMsg && (
+          <View style={styles.errorBox}>
+            <Ionicons name="alert-circle" size={16} color="#e53e3e" style={{ marginTop: 1 }} />
+            <Text style={styles.errorText}>{errorMsg}</Text>
+          </View>
+        )}
 
         {mode === 'login' && (
           <Text style={styles.hint}>
@@ -228,6 +234,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   btnText: { fontSize: 17, fontWeight: '800', color: '#000' },
   hint: { textAlign: 'center', fontSize: 14, color: theme.textSecondary },
   hintLink: { color: theme.accentDark, fontWeight: '700' },
+  errorBox: { flexDirection: 'row', alignItems: 'flex-start', gap: 6, backgroundColor: 'rgba(229,62,62,0.08)', borderRadius: 12, padding: 12 },
+  errorText: { flex: 1, fontSize: 14, color: '#e53e3e', lineHeight: 20 },
   successBox: { flex: 1, alignItems: 'center', justifyContent: 'center', padding: 32, gap: 16 },
   successTitle: { fontSize: 24, fontWeight: '800', color: theme.text },
   successText: { fontSize: 15, color: theme.textSecondary, textAlign: 'center', lineHeight: 22 },
