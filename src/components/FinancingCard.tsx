@@ -54,7 +54,7 @@ export const FinancingCard: React.FC<Props> = ({ financing, paidCount, onPress, 
             </View>
           ) : null}
         </View>
-        {financing.bank ? <Text style={styles.bank}>{financing.bank}</Text> : null}
+        {financing.bank && !ownerUsername ? <Text style={styles.bank}>{financing.bank}</Text> : null}
         <View style={styles.progressRow}>
           <View style={styles.progressBar}>
             <View style={[styles.progressFill, { width: `${progress * 100}%` }]} />
