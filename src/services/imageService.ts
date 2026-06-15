@@ -5,10 +5,19 @@ import * as FileSystem from 'expo-file-system';
 const BUCKET = 'images';
 const CACHE_DIR = `${FileSystem.documentDirectory}img_cache/`;
 
-async function ensureCacheDir(): Promise<void> {
-  const info = await FileSystem.getInfoAsync(CACHE_DIR);
-  if (!info.exists) await FileSystem.makeDirectoryAsync(CACHE_DIR, { intermediates: true });
+// Singleton: ensureCacheDir runs only once per session
+let cacheDirReady: Promise<void> | null = null;
+function getCacheDirReady(): Promise<void> {
+  if (!cacheDirReady) {
+    cacheDirReady = FileSystem.getInfoAsync(CACHE_DIR).then(info => {
+      if (!info.exists) return FileSystem.makeDirectoryAsync(CACHE_DIR, { intermediates: true });
+    });
+  }
+  return cacheDirReady;
 }
+
+// In-memory cache: path → local file URI (avoids disk stat on every load)
+const memCache = new Map<string, string | null>();
 
 function cacheFilePath(storagePath: string): string {
   const safe = storagePath.replace(/[^a-zA-Z0-9_-]/g, '_');
@@ -51,17 +60,26 @@ export const imageService = {
   },
 
   async getOrCachePhoto(path: string): Promise<string | null> {
+    // Memory hit: instant
+    if (memCache.has(path)) return memCache.get(path) ?? null;
+
     try {
-      await ensureCacheDir();
+      await getCacheDirReady();
       const localPath = cacheFilePath(path);
       const info = await FileSystem.getInfoAsync(localPath);
-      if (info.exists) return localPath;
+      if (info.exists) {
+        memCache.set(path, localPath);
+        return localPath;
+      }
 
+      // Disk miss: download once and persist
       const signedUrl = await this.getSignedUrl(path);
-      if (!signedUrl) return null;
+      if (!signedUrl) { memCache.set(path, null); return null; }
 
       const result = await FileSystem.downloadAsync(signedUrl, localPath);
-      return result.status === 200 ? result.uri : null;
+      const uri = result.status === 200 ? result.uri : null;
+      memCache.set(path, uri);
+      return uri;
     } catch {
       return this.getSignedUrl(path);
     }
@@ -69,6 +87,7 @@ export const imageService = {
 
   async remove(path: string): Promise<void> {
     await supabase.storage.from(BUCKET).remove([path]);
+    memCache.delete(path);
     try {
       await FileSystem.deleteAsync(cacheFilePath(path), { idempotent: true });
     } catch {
