@@ -220,8 +220,10 @@ insert into storage.buckets (id, name, public)
 values ('images', 'images', false)
 on conflict (id) do nothing;
 
-create policy "images_read_own" on storage.objects
-  for select using (bucket_id = 'images' and (storage.foldername(name))[1] = auth.uid()::text);
+-- Any authenticated user can read (create signed URLs); paths are random UUIDs so unguessable.
+-- Write/delete remain owner-only so guests cannot modify others' files.
+create policy "images_read_authenticated" on storage.objects
+  for select using (bucket_id = 'images' and auth.role() = 'authenticated');
 
 create policy "images_insert_own" on storage.objects
   for insert with check (bucket_id = 'images' and (storage.foldername(name))[1] = auth.uid()::text);
