@@ -1,47 +1,73 @@
-import React, { useMemo, useEffect, useState } from 'react';
-import { TouchableOpacity, Text, StyleSheet, Animated, Platform, useColorScheme } from 'react-native';
-import { NavigationContainer, DarkTheme, DefaultTheme } from '@react-navigation/native';
+import React, { useEffect, useMemo, useState } from 'react';
+import { View, TouchableOpacity, Text, StyleSheet, Animated, Platform, useColorScheme } from 'react-native';
+import { NavigationContainer, DarkTheme, DefaultTheme, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { createBottomTabNavigator, BottomTabBarProps } from '@react-navigation/bottom-tabs';
-import { createNativeStackNavigator } from '@react-navigation/native-stack';
+import { createNativeStackNavigator, NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { Ionicons } from '@expo/vector-icons';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, Theme } from '../theme';
-import { FinancingListScreen } from '../screens/FinancingListScreen';
-import { DashboardScreen } from '../screens/DashboardScreen';
+import { CarProvider, useCar } from '../contexts/CarContext';
+import { CarsListScreen } from '../screens/CarsListScreen';
+import { ProfileScreen } from '../screens/ProfileScreen';
+import { CarInfoScreen } from '../screens/CarInfoScreen';
+import { ExpensesScreen } from '../screens/ExpensesScreen';
+import { FinancingScreen } from '../screens/FinancingScreen';
+import { MaintenanceScreen } from '../screens/MaintenanceScreen';
+import { AccessoriesScreen } from '../screens/AccessoriesScreen';
 import { InstallmentListScreen } from '../screens/InstallmentListScreen';
 import { InstallmentDetailScreen } from '../screens/InstallmentDetailScreen';
-import { EditFinancingScreen } from '../screens/EditFinancingScreen';
+import { EditCarScreen } from '../screens/EditCarScreen';
 import { ReportScreen } from '../screens/ReportScreen';
 import { SimulationScreen } from '../screens/SimulationScreen';
-import { ProfileScreen } from '../screens/ProfileScreen';
 import { tabBarProgress, tabBarVisible } from './tabBarController';
 
 export type RootStackParamList = {
-  FinancingsTab: undefined;
-  Dashboard: { financingId: string; readOnly?: boolean; ownerUsername?: string };
+  Home: undefined;
+  CarHub: { financingId: string; readOnly?: boolean; ownerUsername?: string };
   Installments: { financingId: string; readOnly?: boolean };
   InstallmentDetail: { financingId: string; installmentId: string; readOnly?: boolean };
-  EditFinancing: { financingId: string };
+  EditCar: { financingId: string };
   Report: { financingId: string };
   Simulation: { financingId: string };
 };
 
-export type TabParamList = {
-  Financings: undefined;
-  Profile: undefined;
+export type HomeTabParamList = {
+  Carros: undefined;
+  Perfil: undefined;
+};
+
+export type CarHubTabParamList = {
+  Infos: undefined;
+  Total: undefined;
+  Financiamento: undefined;
+  Manutencao: undefined;
+  Acessorios: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
-const Tab = createBottomTabNavigator<TabParamList>();
+const HomeTab = createBottomTabNavigator<HomeTabParamList>();
+const HubTab = createBottomTabNavigator<CarHubTabParamList>();
 
-const TAB_ICONS: Record<string, [React.ComponentProps<typeof Ionicons>['name'], React.ComponentProps<typeof Ionicons>['name']]> = {
-  Financings: ['car-sport', 'car-sport-outline'],
-  Profile:    ['person', 'person-outline'],
+type IconPair = [React.ComponentProps<typeof Ionicons>['name'], React.ComponentProps<typeof Ionicons>['name']];
+
+const TAB_ICONS: Record<string, IconPair> = {
+  Carros:        ['car-sport', 'car-sport-outline'],
+  Perfil:        ['person', 'person-outline'],
+  Infos:         ['information-circle', 'information-circle-outline'],
+  Total:         ['cash', 'cash-outline'],
+  Financiamento: ['card', 'card-outline'],
+  Manutencao:    ['construct', 'construct-outline'],
+  Acessorios:    ['pricetags', 'pricetags-outline'],
 };
 
 const TAB_LABELS: Record<string, string> = {
-  Financings: 'Financiamentos',
-  Profile:    'Perfil',
+  Carros:        'Carros',
+  Perfil:        'Perfil',
+  Infos:         'Infos',
+  Total:         'Total',
+  Financiamento: 'Financ.',
+  Manutencao:    'Manut.',
+  Acessorios:    'Acessórios',
 };
 
 export const TAB_BAR_HEIGHT = 64;
@@ -94,7 +120,6 @@ const FloatingTabBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
               const event = navigation.emit({ type: 'tabPress', target: route.key, canPreventDefault: true });
               if (!focused && !event.defaultPrevented) navigation.navigate(route.name);
             }}
-            onLongPress={() => navigation.emit({ type: 'tabLongPress', target: route.key })}
           >
             <Ionicons name={focused ? activeIcon : inactiveIcon} size={22} color={color} />
             <Text style={[styles.label, { color }]}>{label}</Text>
@@ -105,33 +130,68 @@ const FloatingTabBar: React.FC<BottomTabBarProps> = ({ state, navigation }) => {
   );
 };
 
-const FinancingsStack = () => {
-  const scheme = useColorScheme();
-  const statusBarStyle = scheme === 'dark' ? 'light' : 'dark';
+const HomeTabs = () => (
+  <HomeTab.Navigator tabBar={(props) => <FloatingTabBar {...props} />} screenOptions={{ headerShown: false }}>
+    <HomeTab.Screen name="Carros" component={CarsListScreen} />
+    <HomeTab.Screen name="Perfil" component={ProfileScreen} />
+  </HomeTab.Navigator>
+);
+
+const CarHubHeader: React.FC = () => {
+  const theme = useTheme();
+  const insets = useSafeAreaInsets();
+  const navigation = useNavigation<NativeStackNavigationProp<RootStackParamList>>();
+  const { car } = useCar();
+  const styles = useMemo(() => makeHeaderStyles(theme), [theme]);
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false, statusBarStyle }}>
-      <Stack.Screen name="FinancingsTab" component={FinancingListScreen} />
-      <Stack.Screen name="Dashboard" component={DashboardScreen} />
-      <Stack.Screen name="Installments" component={InstallmentListScreen} />
-      <Stack.Screen name="InstallmentDetail" component={InstallmentDetailScreen} />
-      <Stack.Screen name="EditFinancing" component={EditFinancingScreen} />
-      <Stack.Screen name="Report" component={ReportScreen} />
-      <Stack.Screen name="Simulation" component={SimulationScreen} />
-    </Stack.Navigator>
+    <View style={[styles.bar, { paddingTop: insets.top + 4 }]}>
+      <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backBtn}>
+        <Ionicons name="chevron-back" size={28} color={theme.accentDark} />
+      </TouchableOpacity>
+      <Text style={styles.title} numberOfLines={1}>{car?.carName ?? 'Carro'}</Text>
+      <View style={{ width: 36 }} />
+    </View>
+  );
+};
+
+const CarHubTabs = () => (
+  <HubTab.Navigator tabBar={(props) => <FloatingTabBar {...props} />} screenOptions={{ headerShown: false }}>
+    <HubTab.Screen name="Infos" component={CarInfoScreen} />
+    <HubTab.Screen name="Total" component={ExpensesScreen} />
+    <HubTab.Screen name="Financiamento" component={FinancingScreen} />
+    <HubTab.Screen name="Manutencao" component={MaintenanceScreen} />
+    <HubTab.Screen name="Acessorios" component={AccessoriesScreen} />
+  </HubTab.Navigator>
+);
+
+const CarHubScreen: React.FC = () => {
+  const theme = useTheme();
+  const route = useRoute<RouteProp<RootStackParamList, 'CarHub'>>();
+  const { financingId, readOnly, ownerUsername } = route.params;
+  return (
+    <CarProvider financingId={financingId} readOnly={readOnly} ownerUsername={ownerUsername}>
+      <View style={{ flex: 1, backgroundColor: theme.bg }}>
+        <CarHubHeader />
+        <CarHubTabs />
+      </View>
+    </CarProvider>
   );
 };
 
 export const AppNavigator = () => {
   const scheme = useColorScheme();
+  const statusBarStyle = scheme === 'dark' ? 'light' : 'dark';
   return (
     <NavigationContainer theme={scheme === 'dark' ? DarkTheme : DefaultTheme}>
-      <Tab.Navigator
-        tabBar={(props) => <FloatingTabBar {...props} />}
-        screenOptions={{ headerShown: false }}
-      >
-        <Tab.Screen name="Financings" component={FinancingsStack} />
-        <Tab.Screen name="Profile" component={ProfileScreen} />
-      </Tab.Navigator>
+      <Stack.Navigator screenOptions={{ headerShown: false, statusBarStyle }}>
+        <Stack.Screen name="Home" component={HomeTabs} />
+        <Stack.Screen name="CarHub" component={CarHubScreen} />
+        <Stack.Screen name="Installments" component={InstallmentListScreen} />
+        <Stack.Screen name="InstallmentDetail" component={InstallmentDetailScreen} />
+        <Stack.Screen name="EditCar" component={EditCarScreen} />
+        <Stack.Screen name="Report" component={ReportScreen} />
+        <Stack.Screen name="Simulation" component={SimulationScreen} />
+      </Stack.Navigator>
     </NavigationContainer>
   );
 };
@@ -150,14 +210,15 @@ const makeTabStyles = (theme: Theme) => StyleSheet.create({
     elevation: 12,
     overflow: Platform.OS === 'android' ? 'hidden' : 'visible',
   },
-  tab: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 3,
+  tab: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 3 },
+  label: { fontSize: 10, fontWeight: '600' },
+});
+
+const makeHeaderStyles = (theme: Theme) => StyleSheet.create({
+  bar: {
+    flexDirection: 'row', alignItems: 'center', paddingHorizontal: 8, paddingBottom: 10,
+    backgroundColor: theme.bg, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: theme.border,
   },
-  label: {
-    fontSize: 10,
-    fontWeight: '600',
-  },
+  backBtn: { padding: 4 },
+  title: { flex: 1, fontSize: 20, fontWeight: '800', color: theme.text, textAlign: 'center' },
 });

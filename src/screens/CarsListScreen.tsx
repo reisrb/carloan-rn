@@ -12,21 +12,21 @@ import { Financing } from '../types';
 import { financingService } from '../services/financingService';
 import { sharingService } from '../services/sharingService';
 import { supabase } from '../lib/supabase';
-import { FinancingCard } from '../components/FinancingCard';
-import { AddFinancingSheet } from '../components/AddFinancingSheet';
+import { CarCard } from '../components/CarCard';
+import { AddCarSheet } from '../components/AddCarSheet';
 import { RootStackParamList, TAB_BAR_BOTTOM_OFFSET } from '../navigation';
 import { showTabBar } from '../navigation/tabBarController';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-export const FinancingListScreen: React.FC = () => {
+export const CarsListScreen: React.FC = () => {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { contentStyle } = useResponsive();
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
-  const [financings, setFinancings] = useState<Financing[]>([]);
-  const [sharedFinancings, setSharedFinancings] = useState<Array<Financing & { shareId: string; permission: 'view' | 'edit'; ownerUsername?: string }>>([]);
+  const [cars, setCars] = useState<Financing[]>([]);
+  const [sharedCars, setSharedCars] = useState<Array<Financing & { shareId: string; permission: 'view' | 'edit'; ownerUsername?: string }>>([]);
   const [paidCounts, setPaidCounts] = useState<Record<string, number>>({});
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
@@ -39,9 +39,7 @@ export const FinancingListScreen: React.FC = () => {
     ]);
 
     const allIds = [...ownData.map(f => f.id)];
-    if (sharedShares.length > 0) {
-      allIds.push(...sharedShares.map(s => s.financingId));
-    }
+    if (sharedShares.length > 0) allIds.push(...sharedShares.map(s => s.financingId));
 
     const counts: Record<string, number> = {};
     if (allIds.length > 0) {
@@ -65,12 +63,12 @@ export const FinancingListScreen: React.FC = () => {
           const f = sharedDataMap[s.financingId];
           return f ? { ...f, shareId: s.id, permission: s.permission, ownerUsername: s.ownerUsername } : null;
         })
-        .filter((x): x is typeof sharedResult[0] => x !== null);
+        .filter((x): x is NonNullable<typeof x> => x !== null);
     }
 
-    setFinancings(ownData);
+    setCars(ownData);
     setPaidCounts(counts);
-    setSharedFinancings(sharedResult);
+    setSharedCars(sharedResult);
   }, []);
 
   useFocusEffect(useCallback(() => {
@@ -94,65 +92,50 @@ export const FinancingListScreen: React.FC = () => {
   }
 
   const data = [
-    { type: 'header', label: 'Meus financiamentos' },
-    ...financings.map(f => ({ type: 'own', financing: f })),
-    ...(financings.length === 0 ? [{ type: 'empty' }] : []),
-    ...(sharedFinancings.length > 0 ? [{ type: 'shared-header', label: 'Financiamentos compartilhados' }] : []),
-    ...sharedFinancings.map(f => ({ type: 'shared', financing: f, shareId: f.shareId })),
+    { type: 'header', label: 'Meus carros' },
+    ...cars.map(f => ({ type: 'own', car: f })),
+    ...(cars.length === 0 ? [{ type: 'empty' }] : []),
+    ...(sharedCars.length > 0 ? [{ type: 'shared-header', label: 'Compartilhados comigo' }] : []),
+    ...sharedCars.map(f => ({ type: 'shared', car: f, shareId: f.shareId })),
   ];
 
   return (
     <View style={styles.container}>
       <FlatList
         data={data}
-        keyExtractor={(item, idx) => {
-          if ('financing' in item) return item.financing.id;
-          return `${item.type}-${idx}`;
-        }}
+        keyExtractor={(item, idx) => ('car' in item ? item.car.id : `${item.type}-${idx}`)}
         contentContainerStyle={[{ paddingTop: insets.top + 12, paddingBottom: TAB_BAR_BOTTOM_OFFSET + 80 }, contentStyle]}
         refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={theme.accentDark} />}
         renderItem={({ item }: any) => {
-          if (item.type === 'header') {
-            return <Text style={styles.title}>{item.label}</Text>;
-          }
-          if (item.type === 'shared-header') {
-            return <Text style={[styles.title, { fontSize: 18, marginTop: 20 }]}>{item.label}</Text>;
-          }
+          if (item.type === 'header') return <Text style={styles.title}>{item.label}</Text>;
+          if (item.type === 'shared-header') return <Text style={[styles.title, { fontSize: 18, marginTop: 20 }]}>{item.label}</Text>;
           if (item.type === 'empty') {
             return (
               <View style={styles.empty}>
                 <Ionicons name="car-sport-outline" size={56} color={theme.textTertiary} />
-                <Text style={styles.emptyTitle}>Nenhum financiamento</Text>
-                <Text style={styles.emptySub}>Toque em + para adicionar o financiamento do seu veículo.</Text>
+                <Text style={styles.emptyTitle}>Nenhum carro</Text>
+                <Text style={styles.emptySub}>Toque em + para adicionar seu veículo.</Text>
               </View>
             );
           }
-          const isReadOnly = item.type === 'shared' && item.financing.permission === 'view';
-          const ownerUsername: string | undefined = item.type === 'shared' ? item.financing.ownerUsername : undefined;
+          const isReadOnly = item.type === 'shared' && item.car.permission === 'view';
+          const ownerUsername: string | undefined = item.type === 'shared' ? item.car.ownerUsername : undefined;
           return (
-            <FinancingCard
-              financing={item.financing}
-              paidCount={paidCounts[item.financing.id] ?? 0}
+            <CarCard
+              car={item.car}
+              paidCount={paidCounts[item.car.id] ?? 0}
               ownerUsername={ownerUsername}
-              onPress={() => navigation.navigate('Dashboard', { financingId: item.financing.id, readOnly: isReadOnly, ownerUsername })}
+              onPress={() => navigation.navigate('CarHub', { financingId: item.car.id, readOnly: isReadOnly, ownerUsername })}
             />
           );
         }}
       />
 
-      <TouchableOpacity
-        style={[styles.fab, { bottom: TAB_BAR_BOTTOM_OFFSET + 16 }]}
-        onPress={() => setShowAdd(true)}
-        activeOpacity={0.85}
-      >
+      <TouchableOpacity style={[styles.fab, { bottom: TAB_BAR_BOTTOM_OFFSET + 16 }]} onPress={() => setShowAdd(true)} activeOpacity={0.85}>
         <Ionicons name="add" size={30} color="#000" />
       </TouchableOpacity>
 
-      <AddFinancingSheet
-        visible={showAdd}
-        onClose={() => setShowAdd(false)}
-        onCreated={() => { setShowAdd(false); load().catch(() => null); }}
-      />
+      <AddCarSheet visible={showAdd} onClose={() => setShowAdd(false)} onCreated={() => { setShowAdd(false); load().catch(() => null); }} />
     </View>
   );
 };

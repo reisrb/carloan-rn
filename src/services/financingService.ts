@@ -15,6 +15,12 @@ type FinancingRow = {
   first_due_date: number;
   created_at: number;
   car_photo_path: string | null;
+  brand: string | null;
+  model: string | null;
+  year: number | null;
+  color: string | null;
+  current_km: number;
+  monthly_cost: number;
 };
 
 type InstallmentDbRow = {
@@ -45,10 +51,16 @@ const toFinancing = (r: FinancingRow): Financing => ({
   vehicleValue: r.vehicle_value,
   downPayment: r.down_payment,
   monthlyRate: r.monthly_rate,
-  totalInstallments: r.total_installments,
+  totalInstallments: r.total_installments ?? 0,
   firstDueDate: r.first_due_date,
   createdAt: r.created_at,
   carPhotoPath: r.car_photo_path,
+  brand: r.brand,
+  model: r.model,
+  year: r.year,
+  color: r.color,
+  currentKm: r.current_km ?? 0,
+  monthlyCost: r.monthly_cost ?? 0,
 });
 
 const toPayment = (r: PaymentRow): Payment => ({
@@ -154,9 +166,81 @@ export const financingService = {
     return { ...toFinancing(data as FinancingRow), installments };
   },
 
-  async create(params: {
+  // Create a car with no financing (total_installments = 0).
+  async createCar(params: {
     carName: string;
     licensePlate: string;
+    brand: string | null;
+    model: string | null;
+    year: number | null;
+    color: string | null;
+    currentKm: number;
+    monthlyCost: number;
+    carPhotoPath: string | null;
+  }): Promise<string> {
+    const userId = await getUserId();
+    const id = generateId();
+    const { error } = await supabase.from('financings').insert({
+      id,
+      user_id: userId,
+      car_name: params.carName,
+      license_plate: params.licensePlate,
+      bank: '',
+      vehicle_value: 0,
+      down_payment: 0,
+      monthly_rate: 0,
+      total_installments: 0,
+      first_due_date: null,
+      created_at: Date.now(),
+      car_photo_path: params.carPhotoPath,
+      brand: params.brand,
+      model: params.model,
+      year: params.year,
+      color: params.color,
+      current_km: params.currentKm,
+      monthly_cost: params.monthlyCost,
+    });
+    if (error) throw new Error(error.message);
+    return id;
+  },
+
+  // Update car-level fields without touching installments.
+  async updateCar(id: string, params: {
+    carName: string;
+    licensePlate: string;
+    brand: string | null;
+    model: string | null;
+    year: number | null;
+    color: string | null;
+    currentKm: number;
+    monthlyCost: number;
+    carPhotoPath: string | null;
+  }): Promise<void> {
+    const { error } = await supabase
+      .from('financings')
+      .update({
+        car_name: params.carName,
+        license_plate: params.licensePlate,
+        brand: params.brand,
+        model: params.model,
+        year: params.year,
+        color: params.color,
+        current_km: params.currentKm,
+        monthly_cost: params.monthlyCost,
+        car_photo_path: params.carPhotoPath,
+      })
+      .eq('id', id);
+    if (error) throw new Error(error.message);
+  },
+
+  // Update only the current km (used when logging maintenance with a higher reading).
+  async updateKm(id: string, currentKm: number): Promise<void> {
+    const { error } = await supabase.from('financings').update({ current_km: currentKm }).eq('id', id);
+    if (error) throw new Error(error.message);
+  },
+
+  // Attach financing to an existing car: set financing fields + generate installments.
+  async addFinancing(id: string, params: {
     bank: string;
     vehicleValue: number;
     downPayment: number;
@@ -165,10 +249,8 @@ export const financingService = {
     totalInstallments: number;
     firstDueDate: number;
     alreadyPaidCount: number;
-    carPhotoPath: string | null;
-  }): Promise<string> {
+  }): Promise<void> {
     const userId = await getUserId();
-    const id = generateId();
 
     const financed = params.vehicleValue > 0
       ? Math.max(0, params.vehicleValue - params.downPayment)
@@ -178,20 +260,14 @@ export const financingService = {
       ? flatInstallments(params.installmentAmount, params.totalInstallments, params.firstDueDate)
       : loanCalculator.priceTable(financed, params.monthlyRate, params.totalInstallments, params.firstDueDate);
 
-    const { error } = await supabase.from('financings').insert({
-      id,
-      user_id: userId,
-      car_name: params.carName,
-      license_plate: params.licensePlate,
+    const { error } = await supabase.from('financings').update({
       bank: params.bank,
       vehicle_value: params.vehicleValue,
       down_payment: params.downPayment,
       monthly_rate: params.monthlyRate,
       total_installments: params.totalInstallments,
       first_due_date: params.firstDueDate,
-      created_at: Date.now(),
-      car_photo_path: params.carPhotoPath,
-    });
+    }).eq('id', id);
     if (error) throw new Error(error.message);
 
     const instRows = rows.map(r => ({
@@ -220,39 +296,6 @@ export const financingService = {
           receipt_paths: [],
         }));
       await insertInBatches('payments', prepaid);
-    }
-
-    return id;
-  },
-
-  async update(id: string, params: {
-    carName: string;
-    licensePlate: string;
-    bank: string;
-    vehicleValue: number;
-    installmentAmount: number;
-    carPhotoPath: string | null;
-  }): Promise<void> {
-    const { error } = await supabase
-      .from('financings')
-      .update({
-        car_name: params.carName,
-        license_plate: params.licensePlate,
-        bank: params.bank,
-        vehicle_value: params.vehicleValue,
-        car_photo_path: params.carPhotoPath,
-      })
-      .eq('id', id);
-    if (error) throw new Error(error.message);
-
-    const installments = await financingService.getInstallments(id);
-    const unpaidIds = installments.filter(i => !i.payment).map(i => i.id);
-    if (unpaidIds.length > 0) {
-      const { error: updError } = await supabase
-        .from('installments')
-        .update({ amount: params.installmentAmount })
-        .in('id', unpaidIds);
-      if (updError) throw new Error(updError.message);
     }
   },
 
