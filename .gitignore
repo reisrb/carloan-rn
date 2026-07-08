@@ -14,3 +14,7 @@ web-build/
 .env.local
 .vercel
 scripts/setup-admin.js
+
+# macOS
+.DS_Store
+**/.DS_Store
