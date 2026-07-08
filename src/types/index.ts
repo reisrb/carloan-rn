@@ -58,6 +58,14 @@ export interface WishlistItem {
   createdAt: number;
 }
 
+export interface FixedExpense {
+  id: string;
+  financingId: string;
+  name: string;
+  value: number;
+  createdAt: number;
+}
+
 export interface Payment {
   id: string;
   installmentId: string;
