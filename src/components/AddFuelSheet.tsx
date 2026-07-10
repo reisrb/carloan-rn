@@ -74,7 +74,6 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
   const liters = digitsToNum(litersText, 1000);
   const kmDriven = digitsToNum(kmDrivenText, 100);
   const pricePerLiter = liters > 0 ? cents / 100 / liters : 0;
-  const consumption = liters > 0 && kmDriven > 0 ? kmDriven / liters : 0;
 
   const save = async () => {
     if (cents <= 0) { showAlert('Erro', 'Informe o valor do abastecimento.'); return; }
@@ -111,7 +110,7 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
           <View style={styles.note}>
             <Ionicons name="information-circle-outline" size={18} color={theme.accentDark} />
             <Text style={styles.noteText}>
-              Informe <Text style={styles.noteBold}>quantos km rodou desde o abastecimento anterior</Text>. O consumo (km/L) usa esses km e os litros deste abastecimento. Sem isso, é salvo mas não entra na média.
+              Informe <Text style={styles.noteBold}>quantos km rodou desde o abastecimento anterior</Text>. Esses km medem o tanque do posto anterior — o consumo (km/L) aparece no card do <Text style={styles.noteBold}>posto anterior</Text>.
             </Text>
           </View>
 
@@ -159,11 +158,6 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
             <View style={styles.fieldRow}>
               <Text style={styles.fieldLabel}>Km desde o último posto</Text>
               <TextInput style={styles.inlineInput} value={kmDrivenText} onChangeText={t => setKmDrivenText(kmMask(t))} keyboardType="numeric" placeholder="0,00" placeholderTextColor={theme.textTertiary} />
-            </View>
-            <View style={styles.sep} />
-            <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>Consumo</Text>
-              <Text style={styles.computed}>{consumption > 0 ? `${consumption.toFixed(2)} km/L` : '—'}</Text>
             </View>
           </View>
 
