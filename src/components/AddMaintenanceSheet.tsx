@@ -25,6 +25,12 @@ interface Props {
   onSaved: () => void;
 }
 
+// Group an integer km with thousand separators (right-to-left), e.g. "12345" -> "12.345".
+const groupKm = (text: string): string => {
+  const digits = text.replace(/\D/g, '').slice(0, 7);
+  return digits.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+};
+
 const dateMask = (text: string): string => {
   const digits = text.replace(/\D/g, '').slice(0, 8);
   if (digits.length > 4) return `${digits.slice(0, 2)}/${digits.slice(2, 4)}/${digits.slice(4)}`;
@@ -62,7 +68,7 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
       setItems((existing.items ?? []).map(it => ({ name: it.name, cents: Math.round(it.value * 100) })));
       setLaborCents(Math.round(existing.laborValue * 100));
       setServiceDateText(existing.serviceDate ? formatDate(existing.serviceDate) : '');
-      setKmText(existing.kmAtService != null ? String(existing.kmAtService) : String(currentKm));
+      setKmText(groupKm(String(existing.kmAtService != null ? existing.kmAtService : currentKm)));
       setPurchaseDateText(existing.itemPurchaseDate ? formatDate(existing.itemPurchaseDate) : '');
       setDueKmText(existing.dueKm != null ? String(existing.dueKm) : '');
       setDueDateText(existing.dueDate ? formatDate(existing.dueDate) : '');
@@ -70,7 +76,7 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
       setNewReceiptUris([]);
     } else {
       setStatus('pending'); setDescription(''); setTotalCents(0); setTotalTouched(false); setItems([]); setLaborCents(0);
-      setServiceDateText(''); setKmText(String(currentKm)); setPurchaseDateText(''); setDueKmText(''); setDueDateText('');
+      setServiceDateText(''); setKmText(groupKm(String(currentKm))); setPurchaseDateText(''); setDueKmText(''); setDueDateText('');
       setExistingReceipts([]); setNewReceiptUris([]);
     }
   }, [visible, existing, currentKm]);
@@ -229,7 +235,7 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
                 <View style={styles.sep} />
                 <View style={styles.fieldRow}>
                   <Text style={styles.fieldLabel}>Km no serviço</Text>
-                  <TextInput style={styles.inlineInput} value={kmText} onChangeText={t => setKmText(t.replace(/\D/g, '').slice(0, 7))} keyboardType="numeric" placeholder={String(currentKm)} placeholderTextColor={theme.textTertiary} />
+                  <TextInput style={styles.inlineInput} value={kmText} onChangeText={t => setKmText(groupKm(t))} keyboardType="numeric" placeholder={groupKm(String(currentKm))} placeholderTextColor={theme.textTertiary} />
                 </View>
                 <View style={styles.sep} />
                 <View style={styles.fieldRow}>
