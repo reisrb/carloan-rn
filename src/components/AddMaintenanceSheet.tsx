@@ -130,18 +130,18 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
         serviceDate: status === 'done' ? parseDate(serviceDateText) : null,
         kmAtService,
         itemPurchaseDate: status === 'done' ? parseDate(purchaseDateText) : null,
-        // Pending: km is the absolute target. Done: validade lives on the spawned pending.
-        dueKm: status === 'pending' ? enteredKm : null,
-        dueDate: status === 'pending' ? dueDate : null,
+        // Pending: km is the absolute target. Done: keep the entered "rodar mais" increment.
+        dueKm: enteredKm,
+        dueDate,
         receiptPaths,
       };
 
       if (existing) await maintenanceService.update(existing.id, input);
       else await maintenanceService.create(financingId, input);
 
-      // Done maintenance with a validade → spawn a pending "next change" card.
-      // Validade km is an increment over the service km (or current km).
-      if (status === 'done' && (enteredKm != null || dueDate != null)) {
+      // Becoming done (new or concluded, not editing an already-done) with a validade
+      // → spawn a pending "next change" card. Validade km is an increment over service km.
+      if ((!existing || existing.status !== 'done') && status === 'done' && (enteredKm != null || dueDate != null)) {
         const base = kmAtService ?? currentKm;
         await maintenanceService.create(financingId, {
           status: 'pending',
