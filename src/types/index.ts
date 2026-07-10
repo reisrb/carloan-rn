@@ -36,6 +36,7 @@ export interface Maintenance {
   itemPurchaseDate: number | null;
   dueKm: number | null;
   dueDate: number | null;
+  receiptPaths: string[];
   createdAt: number;
 }
 

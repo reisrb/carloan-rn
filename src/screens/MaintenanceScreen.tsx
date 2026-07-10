@@ -8,6 +8,7 @@ import { useCar } from '../contexts/CarContext';
 import { Maintenance } from '../types';
 import { maintenanceService } from '../services/maintenanceService';
 import { AddMaintenanceSheet } from '../components/AddMaintenanceSheet';
+import { ReceiptThumb } from '../components/ReceiptThumb';
 import { TAB_BAR_BOTTOM_OFFSET } from '../navigation';
 import { formatDate, daysUntil } from '../utils/date';
 import { showConfirm, showAlert } from '../utils/dialogs';
@@ -106,6 +107,11 @@ export const MaintenanceScreen: React.FC = () => {
               {m.kmAtService != null && <Detail label="Km" value={`${m.kmAtService.toLocaleString('pt-BR')} km`} theme={theme} />}
               {m.itemPurchaseDate != null && <Detail label="Compra do item" value={formatDate(m.itemPurchaseDate)} theme={theme} />}
             </View>
+            {m.receiptPaths.length > 0 && (
+              <View style={styles.receiptRow}>
+                {m.receiptPaths.map(p => <ReceiptThumb key={p} path={p} size={56} openable />)}
+              </View>
+            )}
             {!readOnly && (
               <TouchableOpacity style={styles.deleteRow} onPress={() => remove(m)}>
                 <Ionicons name="trash-outline" size={14} color={theme.spend} />
@@ -154,6 +160,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   badgeText: { fontSize: 12, fontWeight: '700' },
   detailRows: { marginTop: 8 },
+  receiptRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   deleteRow: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 10 },
   deleteText: { fontSize: 13, fontWeight: '600', color: theme.spend },
   fab: {
