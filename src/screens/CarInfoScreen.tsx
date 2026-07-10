@@ -96,7 +96,7 @@ export const CarInfoScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={[{ paddingTop: 12, paddingBottom: TAB_BAR_BOTTOM_OFFSET + 20 }, contentStyle]}>
+      <ScrollView contentContainerStyle={[{ paddingTop: 12, paddingBottom: TAB_BAR_BOTTOM_OFFSET + 96 }, contentStyle]}>
         <View style={styles.photoWrap}>
           {photoUrl ? (
             <Image source={{ uri: photoUrl }} style={styles.photo} />

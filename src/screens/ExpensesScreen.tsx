@@ -86,7 +86,7 @@ export const ExpensesScreen: React.FC = () => {
 
   return (
     <View style={styles.container}>
-      <ScrollView contentContainerStyle={[{ paddingTop: 12, paddingBottom: TAB_BAR_BOTTOM_OFFSET + 20 }, contentStyle]}>
+      <ScrollView contentContainerStyle={[{ paddingTop: 12, paddingBottom: TAB_BAR_BOTTOM_OFFSET + 96 }, contentStyle]}>
         <TouchableOpacity style={styles.exportBtn} onPress={exportPdf} activeOpacity={0.7}>
           <Ionicons name="document-text-outline" size={18} color={theme.accentDark} />
           <Text style={styles.exportText}>Exportar PDF</Text>
