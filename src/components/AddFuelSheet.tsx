@@ -47,7 +47,6 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { contentStyle } = useResponsive();
-  const [station, setStation] = useState('');
   const [local, setLocal] = useState('');
   const [flag, setFlag] = useState('');
   const [dateText, setDateText] = useState('');
@@ -59,7 +58,6 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
   useEffect(() => {
     if (!visible) return;
     if (existing) {
-      setStation(existing.station ?? '');
       setLocal(existing.local ?? '');
       setFlag(existing.flag ?? '');
       setDateText(existing.date != null ? formatDate(existing.date) : '');
@@ -67,7 +65,7 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
       setLitersText(existing.liters != null ? litersMask(String(Math.round(existing.liters * 1000))) : '');
       setKmDrivenText(existing.kmDriven != null ? kmMask(String(Math.round(existing.kmDriven * 100))) : '');
     } else {
-      setStation(''); setLocal(''); setFlag(''); setDateText(''); setCents(0); setLitersText(''); setKmDrivenText('');
+      setLocal(''); setFlag(''); setDateText(''); setCents(0); setLitersText(''); setKmDrivenText('');
     }
   }, [visible, existing]);
 
@@ -80,7 +78,7 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
     setSaving(true);
     try {
       const input = {
-        station: station.trim() || null,
+        station: null,
         local: local.trim() || null,
         flag: flag.trim() || null,
         date: parseDate(dateText),
@@ -115,8 +113,6 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
           </View>
 
           <View style={styles.card}>
-            <TextInput style={styles.input} value={station} onChangeText={setStation} placeholder="Nome do posto" placeholderTextColor={theme.textSecondary} />
-            <View style={styles.sep} />
             <TextInput style={styles.input} value={local} onChangeText={setLocal} placeholder="Local (cidade / bairro)" placeholderTextColor={theme.textSecondary} />
             <View style={styles.sep} />
             <TextInput style={styles.input} value={flag} onChangeText={setFlag} placeholder="Bandeira (ex: Shell)" placeholderTextColor={theme.textSecondary} />

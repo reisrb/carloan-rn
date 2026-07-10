@@ -94,7 +94,7 @@ export const FuelScreen: React.FC = () => {
                     )}
                   </View>
                   <Text style={styles.rowMeta}>
-                    {[f.flag, f.station, f.local, f.date != null ? formatDate(f.date) : null, f.liters != null ? `${f.liters.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} L` : null, f.kmDriven != null ? `${f.kmDriven.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} km rodados` : null].filter(Boolean).join(' · ') || '—'}
+                    {[f.flag, f.local, f.date != null ? formatDate(f.date) : null, f.liters != null ? `${f.liters.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} L` : null, f.kmDriven != null ? `${f.kmDriven.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} km rodados` : null].filter(Boolean).join(' · ') || '—'}
                   </Text>
                 </View>
                 {!readOnly && (
