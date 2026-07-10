@@ -68,7 +68,7 @@ export const imageService = {
   async uploadCarPhoto(financingId: string, uri: string): Promise<string> {
     const userId = await getUserId();
     const path = `${userId}/${financingId}-car-${generateId()}.jpg`;
-    const body = await toUploadBody(uri, 1080, 0.72);
+    const body = await toUploadBody(uri, 480, 0.72);
     const { error } = await supabase.storage.from(BUCKET).upload(path, body, {
       contentType: 'image/jpeg',
       upsert: true,
