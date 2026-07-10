@@ -1,5 +1,6 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Share } from 'react-native';
+import * as Print from 'expo-print';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import { useTheme, Theme, formatBRL } from '../theme';
@@ -55,6 +56,65 @@ export const MaintenanceScreen: React.FC = () => {
     });
   };
 
+  const buildHtml = (pending: Maintenance[], done: Maintenance[]): string => {
+    const esc = (s: string) => s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+    const pendingRows = pending.map(m => {
+      const b = pendingBadge(m);
+      const prev = [m.dueKm != null ? `${m.dueKm.toLocaleString('pt-BR')} km` : null, m.dueDate != null ? formatDate(m.dueDate) : null].filter(Boolean).join(' · ') || '—';
+      return `<tr><td>${esc(m.description)}</td><td>${prev}</td><td style="color:${b.color};font-weight:bold;">${b.label}</td></tr>`;
+    }).join('');
+
+    const doneBlocks = done.map(m => {
+      const itemRows = m.items.map(it => `<tr><td>• ${esc(it.name)}</td><td class="r">${formatBRL(it.value)}</td></tr>`).join('');
+      const meta = [
+        m.serviceDate != null ? `Data: ${formatDate(m.serviceDate)}` : null,
+        m.kmAtService != null ? `${m.kmAtService.toLocaleString('pt-BR')} km` : null,
+        m.itemPurchaseDate != null ? `Compra: ${formatDate(m.itemPurchaseDate)}` : null,
+      ].filter(Boolean).join(' &nbsp;·&nbsp; ');
+      return `
+        <div class="block">
+          <div class="bhead"><span class="btitle">${esc(m.description)}</span><span class="btotal">${formatBRL(m.totalValue)}</span></div>
+          ${meta ? `<div class="meta">${meta}</div>` : ''}
+          <table class="items">
+            ${itemRows}
+            ${m.laborValue > 0 ? `<tr><td>Mão de obra</td><td class="r">${formatBRL(m.laborValue)}</td></tr>` : ''}
+            <tr class="ttl"><td>Total</td><td class="r">${formatBRL(m.totalValue)}</td></tr>
+          </table>
+        </div>`;
+    }).join('');
+
+    const grandTotal = done.reduce((s, m) => s + m.totalValue, 0);
+
+    return `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>
+      body{font-family:Arial,sans-serif;margin:24px;color:#000;}
+      h1{font-size:22px;margin:0 0 2px 0;} h2{font-size:13px;text-transform:uppercase;color:#666;margin:22px 0 8px;}
+      .sub{color:#888;font-size:12px;margin-bottom:8px;}
+      table{width:100%;border-collapse:collapse;} th{background:#f5f5f5;text-align:left;padding:8px;font-size:11px;color:#666;}
+      td{padding:7px 8px;border-bottom:1px solid #eee;font-size:13px;} .r{text-align:right;font-weight:bold;}
+      .block{border:1px solid #eee;border-radius:10px;padding:12px 14px;margin-bottom:10px;}
+      .bhead{display:flex;justify-content:space-between;align-items:baseline;} .btitle{font-weight:bold;font-size:15px;} .btotal{font-weight:bold;font-size:15px;}
+      .meta{color:#888;font-size:12px;margin:2px 0 8px;} .items td{border:none;padding:3px 0;} .items .ttl td{border-top:1px solid #eee;padding-top:6px;font-weight:bold;}
+      .grand{display:flex;justify-content:space-between;font-weight:bold;font-size:15px;margin-top:8px;padding:10px 14px;background:#f5f5f5;border-radius:10px;}
+    </style></head><body>
+      <h1>${esc(car?.carName ?? 'Carro')}</h1>
+      <div class="sub">Manutenções &nbsp;·&nbsp; ${car ? `${car.currentKm.toLocaleString('pt-BR')} km` : ''}</div>
+      ${pending.length ? `<h2>Pendentes</h2><table><thead><tr><th>Descrição</th><th>Previsão</th><th>Status</th></tr></thead><tbody>${pendingRows}</tbody></table>` : ''}
+      ${done.length ? `<h2>Histórico</h2>${doneBlocks}<div class="grand"><span>Total gasto em manutenção</span><span>${formatBRL(grandTotal)}</span></div>` : ''}
+      ${!pending.length && !done.length ? '<p>Nenhuma manutenção registrada.</p>' : ''}
+    </body></html>`;
+  };
+
+  const exportPdf = async () => {
+    try {
+      const html = buildHtml(items.filter(m => m.status === 'pending'), items.filter(m => m.status === 'done'));
+      const file = await Print.printToFileAsync({ html, base64: false });
+      await Share.share({ url: file.uri, title: `Manutenções — ${car?.carName ?? 'Carro'}` });
+    } catch (e: any) {
+      showAlert('Erro', e?.message ?? 'Não foi possível exportar');
+    }
+  };
+
   if (loading) {
     return <View style={[styles.container, styles.center]}><ActivityIndicator size="large" color={theme.accentDark} /></View>;
   }
@@ -65,6 +125,12 @@ export const MaintenanceScreen: React.FC = () => {
   return (
     <View style={styles.container}>
       <ScrollView contentContainerStyle={[{ paddingTop: 12, paddingBottom: TAB_BAR_BOTTOM_OFFSET + 80 }, contentStyle]}>
+        {items.length > 0 && (
+          <TouchableOpacity style={styles.exportBtn} onPress={exportPdf} activeOpacity={0.7}>
+            <Ionicons name="document-text-outline" size={18} color={theme.accentDark} />
+            <Text style={styles.exportText}>Exportar PDF</Text>
+          </TouchableOpacity>
+        )}
         <Text style={styles.sectionTitle}>Pendentes</Text>
         {pending.length === 0 ? (
           <Text style={styles.emptyLine}>Nenhuma manutenção pendente.</Text>
@@ -162,6 +228,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg },
   center: { alignItems: 'center', justifyContent: 'center' },
   sectionTitle: { fontSize: 20, fontWeight: '900', color: theme.text, marginHorizontal: 16, marginBottom: 10 },
+  exportBtn: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 6, alignSelf: 'flex-end', marginHorizontal: 16, marginBottom: 12, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 12, backgroundColor: theme.card, ...theme.shadow },
+  exportText: { fontSize: 14, fontWeight: '700', color: theme.accentDark },
   emptyLine: { fontSize: 14, color: theme.textSecondary, marginHorizontal: 20, marginBottom: 8 },
   card: { marginHorizontal: 16, marginBottom: 10, backgroundColor: theme.card, borderRadius: 16, padding: 16, ...theme.shadow },
   cardHead: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', gap: 10 },
