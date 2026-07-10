@@ -6,7 +6,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, Theme, formatBRL } from '../theme';
 import { useResponsive } from '../hooks/useResponsive';
-import { FuelFillup, fuelByMonth, fuelMonthlyAverage } from '../types';
+import { FuelFillup, fuelByMonth, fuelMonthlyAverage, fuelConsumptionByFill } from '../types';
 import { fuelService } from '../services/fuelService';
 import { AddFuelSheet } from '../components/AddFuelSheet';
 import { RootStackParamList, TAB_BAR_BOTTOM_OFFSET } from '../navigation';
@@ -45,6 +45,7 @@ export const FuelScreen: React.FC = () => {
     });
   };
 
+  const consMap = fuelConsumptionByFill(items);
   const months = fuelByMonth(items);
   const average = fuelMonthlyAverage(items);
   const grandTotal = items.reduce((s, f) => s + f.totalValue, 0);
@@ -87,8 +88,8 @@ export const FuelScreen: React.FC = () => {
                 <View style={styles.rowBody}>
                   <View style={styles.rowTop}>
                     <Text style={styles.rowValue}>{formatBRL(f.totalValue)}</Text>
-                    {f.kmDriven != null && f.liters != null && f.liters > 0 && (
-                      <Text style={styles.rowConsumption}>{(f.kmDriven / f.liters).toFixed(1)} km/L</Text>
+                    {consMap[f.id] != null && (
+                      <Text style={styles.rowConsumption}>{consMap[f.id].toFixed(1)} km/L</Text>
                     )}
                   </View>
                   <Text style={styles.rowMeta}>

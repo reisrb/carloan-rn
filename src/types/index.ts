@@ -86,12 +86,39 @@ export interface FuelFillup {
   createdAt: number;
 }
 
-/** Average consumption (km/L) from fill-ups that recorded km driven since a full tank. */
+function fuelSortedAsc(fillups: FuelFillup[]): FuelFillup[] {
+  return [...fillups].sort((a, b) => (a.date ?? a.createdAt) - (b.date ?? b.createdAt));
+}
+
+/**
+ * Consumption is measured per segment between consecutive fill-ups and attributed
+ * to the PREVIOUS station: consumption(prev) = kmDriven(current) / liters(prev).
+ * The km driven (entered at the current fill) covers the tank bought at the
+ * previous fill. Returns a map keyed by the previous fill-up id.
+ */
+export function fuelConsumptionByFill(fillups: FuelFillup[]): Record<string, number> {
+  const s = fuelSortedAsc(fillups);
+  const map: Record<string, number> = {};
+  for (let i = 1; i < s.length; i++) {
+    const prev = s[i - 1], cur = s[i];
+    if ((cur.kmDriven ?? 0) > 0 && (prev.liters ?? 0) > 0) {
+      map[prev.id] = (cur.kmDriven as number) / (prev.liters as number);
+    }
+  }
+  return map;
+}
+
+/** Average consumption (km/L): total distance over measured segments / total litres. */
 export function avgConsumption(fillups: FuelFillup[]): number | null {
-  const rel = fillups.filter(f => (f.kmDriven ?? 0) > 0 && (f.liters ?? 0) > 0);
-  if (!rel.length) return null;
-  const km = rel.reduce((s, f) => s + (f.kmDriven as number), 0);
-  const liters = rel.reduce((s, f) => s + (f.liters as number), 0);
+  const s = fuelSortedAsc(fillups);
+  let km = 0, liters = 0;
+  for (let i = 1; i < s.length; i++) {
+    const prev = s[i - 1], cur = s[i];
+    if ((cur.kmDriven ?? 0) > 0 && (prev.liters ?? 0) > 0) {
+      km += cur.kmDriven as number;
+      liters += prev.liters as number;
+    }
+  }
   return liters > 0 ? km / liters : null;
 }
 
