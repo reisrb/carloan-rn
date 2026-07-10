@@ -139,9 +139,11 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
       if (existing) await maintenanceService.update(existing.id, input);
       else await maintenanceService.create(financingId, input);
 
-      // Becoming done (new or concluded, not editing an already-done) with a validade
-      // → spawn a pending "next change" card. Validade km is an increment over service km.
-      if ((!existing || existing.status !== 'done') && status === 'done' && (enteredKm != null || dueDate != null)) {
+      // Spawn a pending "next change" card when a done gains a validade — for a new
+      // done, a concluded pending, or an existing done that didn't have a validade
+      // yet. Skip if it already had one (avoids duplicates on further edits).
+      const alreadyHadValidade = existing != null && existing.status === 'done' && (existing.dueKm != null || existing.dueDate != null);
+      if (status === 'done' && (enteredKm != null || dueDate != null) && !alreadyHadValidade) {
         const base = kmAtService ?? currentKm;
         await maintenanceService.create(financingId, {
           status: 'pending',
