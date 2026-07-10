@@ -79,6 +79,7 @@ export interface FuelFillup {
   financingId: string;
   local: string | null;
   flag: string | null;
+  fuelType: string | null;
   date: number | null;
   totalValue: number;
   liters: number | null;
@@ -109,24 +110,34 @@ export function fuelConsumptionByFill(fillups: FuelFillup[]): Record<string, num
   return map;
 }
 
-/** Best consumption (km/L) per brand (bandeira), attributed to the prev fill's flag. Best first. */
-export function fuelConsumptionByFlag(fillups: FuelFillup[]): { flag: string; kmL: number }[] {
+/** Best consumption (km/L) grouped by some attribute of the PREVIOUS fill. Best first. */
+function fuelConsumptionByKey(fillups: FuelFillup[], keyOf: (f: FuelFillup) => string): { key: string; kmL: number }[] {
   const s = fuelSortedAsc(fillups);
   const agg: Record<string, { km: number; liters: number }> = {};
   for (let i = 1; i < s.length; i++) {
     const prev = s[i - 1], cur = s[i];
     if ((cur.kmDriven ?? 0) > 0 && (prev.liters ?? 0) > 0) {
-      const flag = (prev.flag && prev.flag.trim()) || 'Sem bandeira';
-      const a = agg[flag] ?? { km: 0, liters: 0 };
+      const key = keyOf(prev);
+      const a = agg[key] ?? { km: 0, liters: 0 };
       a.km += cur.kmDriven as number;
       a.liters += prev.liters as number;
-      agg[flag] = a;
+      agg[key] = a;
     }
   }
   return Object.entries(agg)
-    .map(([flag, v]) => ({ flag, kmL: v.liters > 0 ? v.km / v.liters : 0 }))
+    .map(([key, v]) => ({ key, kmL: v.liters > 0 ? v.km / v.liters : 0 }))
     .filter(x => x.kmL > 0)
     .sort((a, b) => b.kmL - a.kmL);
+}
+
+/** Best consumption per brand (bandeira). Best first. */
+export function fuelConsumptionByFlag(fillups: FuelFillup[]): { flag: string; kmL: number }[] {
+  return fuelConsumptionByKey(fillups, f => (f.flag && f.flag.trim()) || 'Sem bandeira').map(x => ({ flag: x.key, kmL: x.kmL }));
+}
+
+/** Best consumption per fuel type. Best first. */
+export function fuelConsumptionByType(fillups: FuelFillup[]): { type: string; kmL: number }[] {
+  return fuelConsumptionByKey(fillups, f => (f.fuelType && f.fuelType.trim()) || 'Sem tipo').map(x => ({ type: x.key, kmL: x.kmL }));
 }
 
 /** Average consumption (km/L): total distance over measured segments / total litres. */

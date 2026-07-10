@@ -6,7 +6,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, Theme, formatBRL } from '../theme';
 import { useResponsive } from '../hooks/useResponsive';
-import { FuelFillup, fuelByMonth, fuelMonthlyAverage, fuelConsumptionByFill, fuelConsumptionByFlag } from '../types';
+import { FuelFillup, fuelByMonth, fuelMonthlyAverage, fuelConsumptionByFill, fuelConsumptionByFlag, fuelConsumptionByType } from '../types';
 import { fuelService } from '../services/fuelService';
 import { AddFuelSheet } from '../components/AddFuelSheet';
 import { RootStackParamList, TAB_BAR_BOTTOM_OFFSET } from '../navigation';
@@ -47,6 +47,7 @@ export const FuelScreen: React.FC = () => {
 
   const consMap = fuelConsumptionByFill(items);
   const byFlag = fuelConsumptionByFlag(items);
+  const byType = fuelConsumptionByType(items);
   const months = fuelByMonth(items);
   const average = fuelMonthlyAverage(items);
   const grandTotal = items.reduce((s, f) => s + f.totalValue, 0);
@@ -94,7 +95,7 @@ export const FuelScreen: React.FC = () => {
                     )}
                   </View>
                   <Text style={styles.rowMeta}>
-                    {[f.flag, f.local, f.date != null ? formatDate(f.date) : null, f.liters != null ? `${f.liters.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} L` : null, f.kmDriven != null ? `${f.kmDriven.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} km rodados` : null].filter(Boolean).join(' · ') || '—'}
+                    {[f.flag, f.fuelType, f.local, f.date != null ? formatDate(f.date) : null, f.liters != null ? `${f.liters.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} L` : null, f.kmDriven != null ? `${f.kmDriven.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} km rodados` : null].filter(Boolean).join(' · ') || '—'}
                   </Text>
                 </View>
                 {!readOnly && (
@@ -125,6 +126,21 @@ export const FuelScreen: React.FC = () => {
                     </View>
                   ))}
                 </View>
+              )}
+
+              {byType.length > 0 && (
+                <>
+                  <Text style={styles.flagTitle}>Consumo por combustível</Text>
+                  <View style={styles.card}>
+                    {byType.map((b, i) => (
+                      <View key={b.type} style={[styles.monthRow, i > 0 && styles.monthRowSep]}>
+                        {i === 0 && <Ionicons name="trophy" size={14} color={theme.orange} style={{ marginRight: 4 }} />}
+                        <Text style={styles.flagLabel} numberOfLines={1}>{b.type}</Text>
+                        <Text style={styles.flagValue}>{b.kmL.toFixed(1)} km/L</Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
               )}
 
               {byFlag.length > 0 && (

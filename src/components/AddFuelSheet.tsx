@@ -49,6 +49,7 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
   const { contentStyle } = useResponsive();
   const [local, setLocal] = useState('');
   const [flag, setFlag] = useState('');
+  const [fuelType, setFuelType] = useState('');
   const [dateText, setDateText] = useState('');
   const [cents, setCents] = useState(0);
   const [litersText, setLitersText] = useState('');
@@ -60,12 +61,13 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
     if (existing) {
       setLocal(existing.local ?? '');
       setFlag(existing.flag ?? '');
+      setFuelType(existing.fuelType ?? '');
       setDateText(existing.date != null ? formatDate(existing.date) : '');
       setCents(Math.round(existing.totalValue * 100));
       setLitersText(existing.liters != null ? litersMask(String(Math.round(existing.liters * 1000))) : '');
       setKmDrivenText(existing.kmDriven != null ? kmMask(String(Math.round(existing.kmDriven * 100))) : '');
     } else {
-      setLocal(''); setFlag(''); setDateText(''); setCents(0); setLitersText(''); setKmDrivenText('');
+      setLocal(''); setFlag(''); setFuelType(''); setDateText(''); setCents(0); setLitersText(''); setKmDrivenText('');
     }
   }, [visible, existing]);
 
@@ -80,6 +82,7 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
       const input = {
         local: local.trim() || null,
         flag: flag.trim() || null,
+        fuelType: fuelType.trim() || null,
         date: parseDate(dateText),
         totalValue: cents / 100,
         liters: liters || null,
@@ -118,9 +121,20 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
           </View>
 
           <View style={styles.chips}>
-            {['Shell', 'Ipiranga', 'Petrobras', 'Ale', 'Vibra'].map(f => (
+            {['Shell', 'Ipiranga', 'Petrobras', 'Ale', 'Vibra', 'Rodoil', 'Gulf'].map(f => (
               <TouchableOpacity key={f} style={[styles.chip, flag === f && styles.chipActive]} onPress={() => setFlag(f)}>
                 <Text style={[styles.chipText, flag === f && styles.chipTextActive]}>{f}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.card}>
+            <TextInput style={styles.input} value={fuelType} onChangeText={setFuelType} placeholder="Tipo de combustível" placeholderTextColor={theme.textSecondary} />
+          </View>
+          <View style={styles.chips}>
+            {['Comum', 'Aditivada', 'Podium', 'Álcool', 'Diesel', 'GNV'].map(t => (
+              <TouchableOpacity key={t} style={[styles.chip, fuelType === t && styles.chipActive]} onPress={() => setFuelType(t)}>
+                <Text style={[styles.chipText, fuelType === t && styles.chipTextActive]}>{t}</Text>
               </TouchableOpacity>
             ))}
           </View>
