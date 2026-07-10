@@ -14,6 +14,8 @@ import { showAlert } from '../utils/dialogs';
 interface Props {
   visible: boolean;
   financingId: string;
+  initialName?: string;
+  initialCents?: number;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -25,7 +27,7 @@ const dateMask = (text: string): string => {
   return d;
 };
 
-export const AddAccessorySheet: React.FC<Props> = ({ visible, financingId, onClose, onSaved }) => {
+export const AddAccessorySheet: React.FC<Props> = ({ visible, financingId, initialName, initialCents, onClose, onSaved }) => {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { contentStyle } = useResponsive();
@@ -34,7 +36,7 @@ export const AddAccessorySheet: React.FC<Props> = ({ visible, financingId, onClo
   const [dateText, setDateText] = useState('');
   const [saving, setSaving] = useState(false);
 
-  useEffect(() => { if (visible) { setName(''); setCents(0); setDateText(''); } }, [visible]);
+  useEffect(() => { if (visible) { setName(initialName ?? ''); setCents(initialCents ?? 0); setDateText(''); } }, [visible, initialName, initialCents]);
 
   const save = async () => {
     if (!name.trim()) { showAlert('Erro', 'Informe o nome do acessório.'); return; }

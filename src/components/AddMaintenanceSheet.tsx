@@ -21,6 +21,7 @@ interface Props {
   financingId: string;
   currentKm: number;
   existing: Maintenance | null;
+  forceDone?: boolean;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -38,7 +39,7 @@ const dateMask = (text: string): string => {
   return digits;
 };
 
-export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, currentKm, existing, onClose, onSaved }) => {
+export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, currentKm, existing, forceDone, onClose, onSaved }) => {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { contentStyle } = useResponsive();
@@ -61,7 +62,7 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
   useEffect(() => {
     if (!visible) return;
     if (existing) {
-      setStatus(existing.status);
+      setStatus(forceDone ? 'done' : existing.status);
       setDescription(existing.description);
       setTotalCents(Math.round(existing.totalValue * 100));
       setTotalTouched(existing.totalValue !== existing.itemValue + existing.laborValue);
@@ -79,7 +80,7 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
       setServiceDateText(''); setKmText(groupKm(String(currentKm))); setPurchaseDateText(''); setDueKmText(''); setDueDateText('');
       setExistingReceipts([]); setNewReceiptUris([]);
     }
-  }, [visible, existing, currentKm]);
+  }, [visible, existing, currentKm, forceDone]);
 
   const itemsCents = items.reduce((s, it) => s + it.cents, 0);
 

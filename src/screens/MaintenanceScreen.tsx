@@ -25,6 +25,7 @@ export const MaintenanceScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showSheet, setShowSheet] = useState(false);
   const [editing, setEditing] = useState<Maintenance | null>(null);
+  const [forceDone, setForceDone] = useState(false);
 
   const currentKm = car?.currentKm ?? 0;
 
@@ -46,8 +47,9 @@ export const MaintenanceScreen: React.FC = () => {
     return { label: 'Em dia', color: '#22C55E' };
   };
 
-  const openNew = () => { setEditing(null); setShowSheet(true); };
-  const openEdit = (m: Maintenance) => { if (readOnly) return; setEditing(m); setShowSheet(true); };
+  const openNew = () => { setEditing(null); setForceDone(false); setShowSheet(true); };
+  const openEdit = (m: Maintenance) => { if (readOnly) return; setEditing(m); setForceDone(false); setShowSheet(true); };
+  const openConclude = (m: Maintenance) => { if (readOnly) return; setEditing(m); setForceDone(true); setShowSheet(true); };
 
   const remove = (m: Maintenance) => {
     showConfirm('Excluir manutenção?', `"${m.description}" será removida.`, 'Excluir', async () => {
@@ -147,10 +149,16 @@ export const MaintenanceScreen: React.FC = () => {
                 {[m.dueKm != null ? `${m.dueKm.toLocaleString('pt-BR')} km` : null, m.dueDate != null ? formatDate(m.dueDate) : null].filter(Boolean).join(' · ') || 'Sem previsão'}
               </Text>
               {!readOnly && (
-                <TouchableOpacity style={styles.deleteRow} onPress={() => remove(m)}>
-                  <Ionicons name="trash-outline" size={14} color={theme.spend} />
-                  <Text style={styles.deleteText}>Excluir</Text>
-                </TouchableOpacity>
+                <View style={styles.pendingActions}>
+                  <TouchableOpacity style={styles.concludeBtn} onPress={() => openConclude(m)}>
+                    <Ionicons name="checkmark-circle-outline" size={16} color={theme.accentDark} />
+                    <Text style={styles.concludeText}>Concluir</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity style={styles.deleteRow} onPress={() => remove(m)}>
+                    <Ionicons name="trash-outline" size={14} color={theme.spend} />
+                    <Text style={styles.deleteText}>Excluir</Text>
+                  </TouchableOpacity>
+                </View>
               )}
             </TouchableOpacity>
           );
@@ -209,6 +217,7 @@ export const MaintenanceScreen: React.FC = () => {
         financingId={financingId}
         currentKm={currentKm}
         existing={editing}
+        forceDone={forceDone}
         onClose={() => setShowSheet(false)}
         onSaved={() => { setShowSheet(false); load(); }}
       />
@@ -244,6 +253,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   itemName: { flex: 1, fontSize: 13, color: theme.text },
   itemValue: { fontSize: 13, fontWeight: '600', color: theme.text },
   receiptRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
+  pendingActions: { flexDirection: 'row', alignItems: 'center', gap: 16, marginTop: 12 },
+  concludeBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, backgroundColor: theme.accentSubtle },
+  concludeText: { fontSize: 13, fontWeight: '700', color: theme.accentDark },
   deleteRow: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 10 },
   deleteText: { fontSize: 13, fontWeight: '600', color: theme.spend },
   fab: {

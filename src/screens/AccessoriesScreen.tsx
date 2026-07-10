@@ -28,6 +28,24 @@ export const AccessoriesScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [showAccSheet, setShowAccSheet] = useState(false);
   const [showWishSheet, setShowWishSheet] = useState(false);
+  const [accInitial, setAccInitial] = useState<{ name: string; cents: number } | null>(null);
+  const [installingWishId, setInstallingWishId] = useState<string | null>(null);
+
+  const openInstall = (w: WishlistItem) => {
+    setAccInitial({ name: w.name, cents: Math.round(w.estimatedValue * 100) });
+    setInstallingWishId(w.id);
+    setShowAccSheet(true);
+  };
+
+  const onAccSaved = async () => {
+    setShowAccSheet(false);
+    if (installingWishId) {
+      await wishlistService.remove(installingWishId).catch(() => null);
+      setInstallingWishId(null);
+    }
+    setAccInitial(null);
+    load();
+  };
 
   const load = useCallback(() => {
     setLoading(true);
@@ -110,9 +128,15 @@ export const AccessoriesScreen: React.FC = () => {
                   <Text style={styles.priorityText}>{PRIORITY_LABELS[w.priority] ?? 'Baixa'}</Text>
                 </View>
                 {!readOnly && (
-                  <TouchableOpacity onPress={() => removeWish(w)} style={styles.removeBtn}>
-                    <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
-                  </TouchableOpacity>
+                  <View style={styles.wishActions}>
+                    <TouchableOpacity style={styles.installBtn} onPress={() => openInstall(w)}>
+                      <Ionicons name="checkmark-circle-outline" size={16} color={theme.accentDark} />
+                      <Text style={styles.installText}>Instalar</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity onPress={() => removeWish(w)} style={styles.removeBtn}>
+                      <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
+                    </TouchableOpacity>
+                  </View>
                 )}
               </View>
               {w.notes ? <Text style={styles.notes}>{w.notes}</Text> : null}
@@ -124,14 +148,14 @@ export const AccessoriesScreen: React.FC = () => {
       {!readOnly && (
         <TouchableOpacity
           style={[styles.fab, { bottom: TAB_BAR_BOTTOM_OFFSET + 16 }]}
-          onPress={() => (tab === 'installed' ? setShowAccSheet(true) : setShowWishSheet(true))}
+          onPress={() => { if (tab === 'installed') { setAccInitial(null); setInstallingWishId(null); setShowAccSheet(true); } else { setShowWishSheet(true); } }}
           activeOpacity={0.85}
         >
           <Ionicons name="add" size={30} color="#000" />
         </TouchableOpacity>
       )}
 
-      <AddAccessorySheet visible={showAccSheet} financingId={financingId} onClose={() => setShowAccSheet(false)} onSaved={() => { setShowAccSheet(false); load(); }} />
+      <AddAccessorySheet visible={showAccSheet} financingId={financingId} initialName={accInitial?.name} initialCents={accInitial?.cents} onClose={() => { setShowAccSheet(false); setInstallingWishId(null); setAccInitial(null); }} onSaved={onAccSaved} />
       <AddWishlistSheet visible={showWishSheet} financingId={financingId} onClose={() => setShowWishSheet(false)} onSaved={() => { setShowWishSheet(false); load(); }} />
     </View>
   );
@@ -160,6 +184,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   card: { marginHorizontal: 16, marginTop: 10, backgroundColor: theme.card, borderRadius: 16, padding: 16, ...theme.shadow },
   cardHead: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', gap: 10 },
   cardMetaRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginTop: 8 },
+  wishActions: { flexDirection: 'row', alignItems: 'center', gap: 10 },
+  installBtn: { flexDirection: 'row', alignItems: 'center', gap: 5, paddingHorizontal: 12, paddingVertical: 7, borderRadius: 10, backgroundColor: theme.accentSubtle },
+  installText: { fontSize: 13, fontWeight: '700', color: theme.accentDark },
   priorityBadge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 10 },
   priorityText: { fontSize: 12, fontWeight: '700', color: theme.accentDark },
   notes: { fontSize: 13, color: theme.textSecondary, marginTop: 8 },
