@@ -190,6 +190,8 @@ export const MaintenanceScreen: React.FC = () => {
               {m.serviceDate != null && <Detail label="Data" value={formatDate(m.serviceDate)} theme={theme} />}
               {m.kmAtService != null && <Detail label="Km" value={`${m.kmAtService.toLocaleString('pt-BR')} km`} theme={theme} />}
               {m.itemPurchaseDate != null && <Detail label="Compra do item" value={formatDate(m.itemPurchaseDate)} theme={theme} />}
+              {m.dueKm != null && <Detail label="Rodar mais" value={`${m.dueKm.toLocaleString('pt-BR')} km`} theme={theme} />}
+              {m.dueDate != null && <Detail label="Validade" value={formatDate(m.dueDate)} theme={theme} />}
             </View>
             {m.receiptPaths.length > 0 && (
               <View style={styles.receiptRow}>
