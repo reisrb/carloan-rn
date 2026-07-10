@@ -1,12 +1,13 @@
 import { supabase, getUserId } from '../lib/supabase';
 import { generateId } from '../theme';
-import { Maintenance, MaintenanceStatus } from '../types';
+import { Maintenance, MaintenanceItem, MaintenanceStatus } from '../types';
 
 type MaintenanceRow = {
   id: string;
   financing_id: string;
   status: MaintenanceStatus;
   description: string;
+  items: MaintenanceItem[] | null;
   total_value: number;
   item_value: number;
   labor_value: number;
@@ -24,6 +25,7 @@ const toMaintenance = (r: MaintenanceRow): Maintenance => ({
   financingId: r.financing_id,
   status: r.status,
   description: r.description,
+  items: r.items ?? [],
   totalValue: r.total_value,
   itemValue: r.item_value,
   laborValue: r.labor_value,
@@ -39,6 +41,7 @@ const toMaintenance = (r: MaintenanceRow): Maintenance => ({
 export interface MaintenanceInput {
   status: MaintenanceStatus;
   description: string;
+  items: MaintenanceItem[];
   totalValue: number;
   itemValue: number;
   laborValue: number;
@@ -53,6 +56,7 @@ export interface MaintenanceInput {
 const toRow = (i: MaintenanceInput) => ({
   status: i.status,
   description: i.description,
+  items: i.items,
   total_value: i.totalValue,
   item_value: i.itemValue,
   labor_value: i.laborValue,
