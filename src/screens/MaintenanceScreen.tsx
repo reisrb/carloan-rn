@@ -98,7 +98,7 @@ export const MaintenanceScreen: React.FC = () => {
       .grand{display:flex;justify-content:space-between;font-weight:bold;font-size:15px;margin-top:8px;padding:10px 14px;background:#f5f5f5;border-radius:10px;}
     </style></head><body>
       <h1>${esc(car?.carName ?? 'Carro')}</h1>
-      <div class="sub">Manutenções &nbsp;·&nbsp; ${car ? `${car.currentKm.toLocaleString('pt-BR')} km` : ''}</div>
+      <div class="sub">${car ? esc([[car.brand, car.model].filter(Boolean).join(' '), car.licensePlate, `${car.currentKm.toLocaleString('pt-BR')} km`].filter(Boolean).join(' · ')) : 'Manutenções'}</div>
       ${pending.length ? `<h2>Pendentes</h2><table><thead><tr><th>Descrição</th><th>Previsão</th><th>Status</th></tr></thead><tbody>${pendingRows}</tbody></table>` : ''}
       ${done.length ? `<h2>Histórico</h2>${doneBlocks}<div class="grand"><span>Total gasto em manutenção</span><span>${formatBRL(grandTotal)}</span></div>` : ''}
       ${!pending.length && !done.length ? '<p>Nenhuma manutenção registrada.</p>' : ''}
