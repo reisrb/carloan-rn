@@ -6,6 +6,8 @@ type FuelRow = {
   id: string;
   financing_id: string;
   station: string | null;
+  local: string | null;
+  flag: string | null;
   date: number | null;
   total_value: number;
   liters: number | null;
@@ -18,6 +20,8 @@ const toFillup = (r: FuelRow): FuelFillup => ({
   id: r.id,
   financingId: r.financing_id,
   station: r.station,
+  local: r.local,
+  flag: r.flag,
   date: r.date,
   totalValue: r.total_value,
   liters: r.liters,
@@ -28,6 +32,8 @@ const toFillup = (r: FuelRow): FuelFillup => ({
 
 export interface FuelInput {
   station: string | null;
+  local: string | null;
+  flag: string | null;
   date: number | null;
   totalValue: number;
   liters: number | null;
@@ -54,6 +60,8 @@ export const fuelService = {
       user_id: userId,
       financing_id: financingId,
       station: input.station,
+      local: input.local,
+      flag: input.flag,
       date: input.date,
       total_value: input.totalValue,
       liters: input.liters,
@@ -67,6 +75,8 @@ export const fuelService = {
   async update(id: string, input: FuelInput): Promise<void> {
     const { error } = await supabase.from('fuel_fillups').update({
       station: input.station,
+      local: input.local,
+      flag: input.flag,
       date: input.date,
       total_value: input.totalValue,
       liters: input.liters,

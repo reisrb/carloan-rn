@@ -78,6 +78,8 @@ export interface FuelFillup {
   id: string;
   financingId: string;
   station: string | null;
+  local: string | null;
+  flag: string | null;
   date: number | null;
   totalValue: number;
   liters: number | null;
@@ -106,6 +108,26 @@ export function fuelConsumptionByFill(fillups: FuelFillup[]): Record<string, num
     }
   }
   return map;
+}
+
+/** Best consumption (km/L) per brand (bandeira), attributed to the prev fill's flag. Best first. */
+export function fuelConsumptionByFlag(fillups: FuelFillup[]): { flag: string; kmL: number }[] {
+  const s = fuelSortedAsc(fillups);
+  const agg: Record<string, { km: number; liters: number }> = {};
+  for (let i = 1; i < s.length; i++) {
+    const prev = s[i - 1], cur = s[i];
+    if ((cur.kmDriven ?? 0) > 0 && (prev.liters ?? 0) > 0) {
+      const flag = (prev.flag && prev.flag.trim()) || 'Sem bandeira';
+      const a = agg[flag] ?? { km: 0, liters: 0 };
+      a.km += cur.kmDriven as number;
+      a.liters += prev.liters as number;
+      agg[flag] = a;
+    }
+  }
+  return Object.entries(agg)
+    .map(([flag, v]) => ({ flag, kmL: v.liters > 0 ? v.km / v.liters : 0 }))
+    .filter(x => x.kmL > 0)
+    .sort((a, b) => b.kmL - a.kmL);
 }
 
 /** Average consumption (km/L): total distance over measured segments / total litres. */

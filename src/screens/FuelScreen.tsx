@@ -6,7 +6,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, Theme, formatBRL } from '../theme';
 import { useResponsive } from '../hooks/useResponsive';
-import { FuelFillup, fuelByMonth, fuelMonthlyAverage, fuelConsumptionByFill } from '../types';
+import { FuelFillup, fuelByMonth, fuelMonthlyAverage, fuelConsumptionByFill, fuelConsumptionByFlag } from '../types';
 import { fuelService } from '../services/fuelService';
 import { AddFuelSheet } from '../components/AddFuelSheet';
 import { RootStackParamList, TAB_BAR_BOTTOM_OFFSET } from '../navigation';
@@ -46,6 +46,7 @@ export const FuelScreen: React.FC = () => {
   };
 
   const consMap = fuelConsumptionByFill(items);
+  const byFlag = fuelConsumptionByFlag(items);
   const months = fuelByMonth(items);
   const average = fuelMonthlyAverage(items);
   const grandTotal = items.reduce((s, f) => s + f.totalValue, 0);
@@ -93,7 +94,7 @@ export const FuelScreen: React.FC = () => {
                     )}
                   </View>
                   <Text style={styles.rowMeta}>
-                    {[f.station, f.date != null ? formatDate(f.date) : null, f.liters != null ? `${f.liters.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} L` : null, f.kmDriven != null ? `${f.kmDriven.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} km rodados` : null].filter(Boolean).join(' · ') || '—'}
+                    {[f.flag, f.station, f.local, f.date != null ? formatDate(f.date) : null, f.liters != null ? `${f.liters.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} L` : null, f.kmDriven != null ? `${f.kmDriven.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} km rodados` : null].filter(Boolean).join(' · ') || '—'}
                   </Text>
                 </View>
                 {!readOnly && (
@@ -124,6 +125,21 @@ export const FuelScreen: React.FC = () => {
                     </View>
                   ))}
                 </View>
+              )}
+
+              {byFlag.length > 0 && (
+                <>
+                  <Text style={styles.flagTitle}>Consumo por bandeira</Text>
+                  <View style={styles.card}>
+                    {byFlag.map((b, i) => (
+                      <View key={b.flag} style={[styles.monthRow, i > 0 && styles.monthRowSep]}>
+                        {i === 0 && <Ionicons name="trophy" size={14} color={theme.orange} style={{ marginRight: 4 }} />}
+                        <Text style={styles.flagLabel} numberOfLines={1}>{b.flag}</Text>
+                        <Text style={styles.flagValue}>{b.kmL.toFixed(1)} km/L</Text>
+                      </View>
+                    ))}
+                  </View>
+                </>
               )}
             </>
           )}
@@ -174,5 +190,8 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   barTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: theme.separator, overflow: 'hidden' },
   barFill: { height: '100%', borderRadius: 4, backgroundColor: theme.accentDark },
   monthValue: { fontSize: 13, fontWeight: '700', color: theme.text, width: 88, textAlign: 'right' },
+  flagTitle: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, marginHorizontal: 20, marginTop: 18, marginBottom: 8, letterSpacing: 0.5, textTransform: 'uppercase' },
+  flagLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: theme.text },
+  flagValue: { fontSize: 14, fontWeight: '800', color: theme.accentDark },
   fab: { position: 'absolute', right: 20, width: 58, height: 58, borderRadius: 29, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center', ...theme.shadowLg },
 });

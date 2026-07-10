@@ -48,6 +48,8 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { contentStyle } = useResponsive();
   const [station, setStation] = useState('');
+  const [local, setLocal] = useState('');
+  const [flag, setFlag] = useState('');
   const [dateText, setDateText] = useState('');
   const [cents, setCents] = useState(0);
   const [litersText, setLitersText] = useState('');
@@ -58,12 +60,14 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
     if (!visible) return;
     if (existing) {
       setStation(existing.station ?? '');
+      setLocal(existing.local ?? '');
+      setFlag(existing.flag ?? '');
       setDateText(existing.date != null ? formatDate(existing.date) : '');
       setCents(Math.round(existing.totalValue * 100));
       setLitersText(existing.liters != null ? litersMask(String(Math.round(existing.liters * 1000))) : '');
       setKmDrivenText(existing.kmDriven != null ? kmMask(String(Math.round(existing.kmDriven * 100))) : '');
     } else {
-      setStation(''); setDateText(''); setCents(0); setLitersText(''); setKmDrivenText('');
+      setStation(''); setLocal(''); setFlag(''); setDateText(''); setCents(0); setLitersText(''); setKmDrivenText('');
     }
   }, [visible, existing]);
 
@@ -77,6 +81,8 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
     try {
       const input = {
         station: station.trim() || null,
+        local: local.trim() || null,
+        flag: flag.trim() || null,
         date: parseDate(dateText),
         totalValue: cents / 100,
         liters: liters || null,
@@ -111,6 +117,20 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
           <View style={styles.card}>
             <TextInput style={styles.input} value={station} onChangeText={setStation} placeholder="Nome do posto" placeholderTextColor={theme.textSecondary} />
             <View style={styles.sep} />
+            <TextInput style={styles.input} value={local} onChangeText={setLocal} placeholder="Local (cidade / bairro)" placeholderTextColor={theme.textSecondary} />
+            <View style={styles.sep} />
+            <TextInput style={styles.input} value={flag} onChangeText={setFlag} placeholder="Bandeira (ex: Shell)" placeholderTextColor={theme.textSecondary} />
+          </View>
+
+          <View style={styles.chips}>
+            {['Shell', 'Ipiranga', 'Petrobras', 'Ale', 'Vibra'].map(f => (
+              <TouchableOpacity key={f} style={[styles.chip, flag === f && styles.chipActive]} onPress={() => setFlag(f)}>
+                <Text style={[styles.chipText, flag === f && styles.chipTextActive]}>{f}</Text>
+              </TouchableOpacity>
+            ))}
+          </View>
+
+          <View style={styles.card}>
             <View style={styles.fieldRow}><Text style={styles.fieldLabel}>Valor pago *</Text><CurrencyInput cents={cents} onChange={setCents} /></View>
             <View style={styles.sep} />
             <View style={styles.fieldRow}>
@@ -163,6 +183,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   fieldLabel: { fontSize: 14, color: theme.text, fontWeight: '500' },
   inlineInput: { fontSize: 16, color: theme.text, paddingVertical: 14, minWidth: 120, textAlign: 'right' },
   computed: { fontSize: 16, fontWeight: '700', color: theme.accentDark, paddingVertical: 14 },
+  chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
+  chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border },
+  chipActive: { backgroundColor: theme.accentSubtle, borderColor: theme.accentDark },
+  chipText: { fontSize: 13, fontWeight: '600', color: theme.textSecondary },
+  chipTextActive: { color: theme.accentDark },
   saveBtn: { backgroundColor: theme.accent, borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginTop: 8, ...theme.shadowMd },
   saveBtnText: { fontSize: 16, fontWeight: '800', color: '#000' },
 });
