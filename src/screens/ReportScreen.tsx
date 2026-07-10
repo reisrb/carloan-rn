@@ -1,9 +1,9 @@
 import React, { useCallback, useMemo, useState } from 'react';
 import {
-  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Platform, Share,
+  View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator,
 } from 'react-native';
-import * as Print from 'expo-print';
 import { Ionicons } from '@expo/vector-icons';
+import { exportHtmlAsPdf } from '../utils/pdf';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -124,18 +124,7 @@ export const ReportScreen: React.FC = () => {
 
   const exportReport = async () => {
     try {
-      const html = buildHtmlReport();
-      if (Platform.OS === 'web') {
-        // printToFileAsync is unsupported on web; open the browser print dialog (save as PDF).
-        await Print.printAsync({ html });
-      } else {
-        const filePath = await Print.printToFileAsync({ html, base64: false });
-        await Share.share({
-          url: filePath.uri,
-          message: 'Relatório de financiamento',
-          title: `Relatório — ${financing.carName}`,
-        });
-      }
+      await exportHtmlAsPdf(buildHtmlReport(), `Relatório — ${financing.carName}`);
     } catch (e: any) {
       showAlert('Erro', e?.message ?? 'Não foi possível exportar');
     }
