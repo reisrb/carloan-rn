@@ -73,6 +73,39 @@ export interface FixedExpense {
   createdAt: number;
 }
 
+export interface FuelFillup {
+  id: string;
+  financingId: string;
+  date: number | null;
+  totalValue: number;
+  liters: number | null;
+  km: number | null;
+  createdAt: number;
+}
+
+/** Fuel spend grouped by month, most recent first. */
+export function fuelByMonth(fillups: FuelFillup[]): { key: string; label: string; total: number }[] {
+  const map = new Map<string, { label: string; total: number }>();
+  for (const f of fillups) {
+    const d = new Date(f.date ?? f.createdAt);
+    const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+    const label = d.toLocaleDateString('pt-BR', { month: 'short', year: 'numeric' });
+    const cur = map.get(key) ?? { label, total: 0 };
+    cur.total += f.totalValue;
+    map.set(key, cur);
+  }
+  return [...map.entries()]
+    .sort((a, b) => b[0].localeCompare(a[0]))
+    .map(([key, v]) => ({ key, label: v.label, total: v.total }));
+}
+
+/** Average fuel spend per month (across months that have fill-ups). */
+export function fuelMonthlyAverage(fillups: FuelFillup[]): number {
+  const months = fuelByMonth(fillups);
+  if (!months.length) return 0;
+  return months.reduce((s, m) => s + m.total, 0) / months.length;
+}
+
 export interface Payment {
   id: string;
   installmentId: string;

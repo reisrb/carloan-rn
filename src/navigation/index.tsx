@@ -18,6 +18,7 @@ import { InstallmentListScreen } from '../screens/InstallmentListScreen';
 import { InstallmentDetailScreen } from '../screens/InstallmentDetailScreen';
 import { EditCarScreen } from '../screens/EditCarScreen';
 import { MonthlyExpensesScreen } from '../screens/MonthlyExpensesScreen';
+import { FuelScreen } from '../screens/FuelScreen';
 import { ReportScreen } from '../screens/ReportScreen';
 import { SimulationScreen } from '../screens/SimulationScreen';
 import { tabBarProgress, tabBarVisible } from './tabBarController';
@@ -29,6 +30,7 @@ export type RootStackParamList = {
   InstallmentDetail: { financingId: string; installmentId: string; readOnly?: boolean };
   EditCar: { financingId: string };
   MonthlyExpenses: { financingId: string; readOnly?: boolean };
+  Fuel: { financingId: string; readOnly?: boolean; currentKm?: number };
   Report: { financingId: string };
   Simulation: { financingId: string };
 };
@@ -192,6 +194,7 @@ export const AppNavigator = () => {
         <Stack.Screen name="InstallmentDetail" component={InstallmentDetailScreen} />
         <Stack.Screen name="EditCar" component={EditCarScreen} />
         <Stack.Screen name="MonthlyExpenses" component={MonthlyExpensesScreen} />
+        <Stack.Screen name="Fuel" component={FuelScreen} />
         <Stack.Screen name="Report" component={ReportScreen} />
         <Stack.Screen name="Simulation" component={SimulationScreen} />
       </Stack.Navigator>

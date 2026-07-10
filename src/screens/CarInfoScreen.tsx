@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal, TextInput, Image,
 } from 'react-native';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useTheme, Theme } from '../theme';
@@ -156,6 +156,14 @@ export const CarInfoScreen: React.FC = () => {
         )}
       </ScrollView>
 
+      <TouchableOpacity
+        style={styles.fuelFab}
+        activeOpacity={0.85}
+        onPress={() => navigation.navigate('Fuel', { financingId, readOnly, currentKm: car.currentKm })}
+      >
+        <MaterialCommunityIcons name="gas-station" size={26} color="#000" />
+      </TouchableOpacity>
+
       <Modal visible={showShareModal} transparent animationType="fade" onRequestClose={() => { setShowShareModal(false); setShareUsername(''); setUserSuggestions([]); }}>
         <View style={styles.modalOverlay}>
           <View style={styles.shareModal}>
@@ -221,6 +229,7 @@ const Row: React.FC<{ label: string; value: string; theme: Theme }> = ({ label, 
 const makeStyles = (theme: Theme) => StyleSheet.create({
   container: { flex: 1, backgroundColor: theme.bg },
   center: { alignItems: 'center', justifyContent: 'center' },
+  fuelFab: { position: 'absolute', right: 20, bottom: TAB_BAR_BOTTOM_OFFSET + 16, width: 58, height: 58, borderRadius: 29, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center', ...theme.shadowLg },
   photoWrap: { marginHorizontal: 16, marginBottom: 12, borderRadius: 20, overflow: 'hidden', ...theme.shadow },
   photo: { width: '100%', height: 200 },
   photoPlaceholder: { backgroundColor: theme.accentSubtle, alignItems: 'center', justifyContent: 'center' },
