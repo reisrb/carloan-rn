@@ -111,7 +111,7 @@ export const FuelScreen: React.FC = () => {
           ) : (
             <>
               <View style={[styles.card, styles.hero]}>
-                <Text style={styles.heroLabel}>MÉDIA MENSAL</Text>
+                <Text style={styles.heroLabel}>MÉDIA MENSAL (ÚLTIMOS 3 MESES)</Text>
                 <Text style={styles.heroValue}>{formatBRL(average)}</Text>
                 <Text style={styles.heroSub}>{months.length} {months.length === 1 ? 'mês' : 'meses'} · total {formatBRL(grandTotal)}</Text>
               </View>
