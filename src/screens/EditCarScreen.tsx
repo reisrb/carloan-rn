@@ -64,7 +64,7 @@ export const EditCarScreen: React.FC = () => {
   }
 
   const pickPhoto = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.5 });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.8 });
     if (!result.canceled && result.assets[0]) setPhotoUri(result.assets[0].uri);
   };
 
