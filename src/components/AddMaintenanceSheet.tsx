@@ -117,7 +117,7 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
         .filter(it => it.name.trim() || it.cents > 0)
         .map(it => ({ name: it.name.trim() || 'Item', value: it.cents / 100 }));
 
-      const dueKm = parseInt(dueKmText.replace(/\D/g, ''), 10) || null;
+      const enteredKm = parseInt(dueKmText.replace(/\D/g, ''), 10) || null;
       const dueDate = parseDate(dueDateText);
 
       const input = {
@@ -130,8 +130,8 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
         serviceDate: status === 'done' ? parseDate(serviceDateText) : null,
         kmAtService,
         itemPurchaseDate: status === 'done' ? parseDate(purchaseDateText) : null,
-        // On a done record the validade lives on the spawned pending card, not here.
-        dueKm: status === 'pending' ? dueKm : null,
+        // Pending: km is the absolute target. Done: validade lives on the spawned pending.
+        dueKm: status === 'pending' ? enteredKm : null,
         dueDate: status === 'pending' ? dueDate : null,
         receiptPaths,
       };
@@ -139,8 +139,10 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
       if (existing) await maintenanceService.update(existing.id, input);
       else await maintenanceService.create(financingId, input);
 
-      // New done maintenance with a validade → spawn a pending "next change" card.
-      if (!existing && status === 'done' && (dueKm != null || dueDate != null)) {
+      // Done maintenance with a validade → spawn a pending "next change" card.
+      // Validade km is an increment over the service km (or current km).
+      if (status === 'done' && (enteredKm != null || dueDate != null)) {
+        const base = kmAtService ?? currentKm;
         await maintenanceService.create(financingId, {
           status: 'pending',
           description: desc,
@@ -151,7 +153,7 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
           serviceDate: null,
           kmAtService: null,
           itemPurchaseDate: null,
-          dueKm,
+          dueKm: enteredKm != null ? base + enteredKm : null,
           dueDate,
           receiptPaths: [],
         });
@@ -270,8 +272,8 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
               <Text style={styles.sectionHeader}>PRÓXIMA TROCA (opcional)</Text>
               <View style={styles.card}>
                 <View style={styles.fieldRow}>
-                  <Text style={styles.fieldLabel}>Validade (km)</Text>
-                  <TextInput style={styles.inlineInput} value={dueKmText} onChangeText={t => setDueKmText(groupKm(t))} keyboardType="numeric" placeholder="—" placeholderTextColor={theme.textTertiary} />
+                  <Text style={styles.fieldLabel}>Rodar mais (km)</Text>
+                  <TextInput style={styles.inlineInput} value={dueKmText} onChangeText={t => setDueKmText(groupKm(t))} keyboardType="numeric" placeholder="ex: 30.000" placeholderTextColor={theme.textTertiary} />
                 </View>
                 <View style={styles.sep} />
                 <View style={styles.fieldRow}>
