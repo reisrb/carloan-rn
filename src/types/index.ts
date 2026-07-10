@@ -88,39 +88,31 @@ export interface FuelFillup {
   createdAt: number;
 }
 
-function fuelSortedAsc(fillups: FuelFillup[]): FuelFillup[] {
-  return [...fillups].sort((a, b) => (a.date ?? a.createdAt) - (b.date ?? b.createdAt));
-}
+// Consumption is per fill-up: km driven since the last fill ÷ litres put in now
+// (full-to-full). Both values belong to the same fill-up.
 
-/**
- * Consumption is measured per segment between consecutive fill-ups and attributed
- * to the PREVIOUS station: consumption(prev) = kmDriven(current) / liters(prev).
- * The km driven (entered at the current fill) covers the tank bought at the
- * previous fill. Returns a map keyed by the previous fill-up id.
- */
-export function fuelConsumptionByFill(fillups: FuelFillup[]): Record<string, number> {
-  const s = fuelSortedAsc(fillups);
-  const map: Record<string, number> = {};
-  for (let i = 1; i < s.length; i++) {
-    const prev = s[i - 1], cur = s[i];
-    if ((cur.kmDriven ?? 0) > 0 && (prev.liters ?? 0) > 0) {
-      map[prev.id] = (cur.kmDriven as number) / (prev.liters as number);
-    }
+/** Per-fill stats: consumption (km/L) and cost per km. Keyed by fill-up id. */
+export function fuelStatsByFill(fillups: FuelFillup[]): Record<string, { kmL: number; costPerKm: number }> {
+  const map: Record<string, { kmL: number; costPerKm: number }> = {};
+  for (const f of fillups) {
+    const km = f.kmDriven ?? 0;
+    if (km <= 0) continue;
+    const kmL = (f.liters ?? 0) > 0 ? km / (f.liters as number) : 0;
+    const costPerKm = f.totalValue > 0 ? f.totalValue / km : 0;
+    if (kmL > 0 || costPerKm > 0) map[f.id] = { kmL, costPerKm };
   }
   return map;
 }
 
-/** Best consumption (km/L) grouped by some attribute of the PREVIOUS fill. Best first. */
+/** Best consumption (km/L) grouped by some attribute of the fill-up. Best first. */
 function fuelConsumptionByKey(fillups: FuelFillup[], keyOf: (f: FuelFillup) => string): { key: string; kmL: number }[] {
-  const s = fuelSortedAsc(fillups);
   const agg: Record<string, { km: number; liters: number }> = {};
-  for (let i = 1; i < s.length; i++) {
-    const prev = s[i - 1], cur = s[i];
-    if ((cur.kmDriven ?? 0) > 0 && (prev.liters ?? 0) > 0) {
-      const key = keyOf(prev);
+  for (const f of fillups) {
+    if ((f.kmDriven ?? 0) > 0 && (f.liters ?? 0) > 0) {
+      const key = keyOf(f);
       const a = agg[key] ?? { km: 0, liters: 0 };
-      a.km += cur.kmDriven as number;
-      a.liters += prev.liters as number;
+      a.km += f.kmDriven as number;
+      a.liters += f.liters as number;
       agg[key] = a;
     }
   }
@@ -140,47 +132,25 @@ export function fuelConsumptionByType(fillups: FuelFillup[]): { type: string; km
   return fuelConsumptionByKey(fillups, f => (f.fuelType && f.fuelType.trim()) || 'Sem tipo').map(x => ({ type: x.key, kmL: x.kmL }));
 }
 
-/**
- * Per-segment stats attributed to the PREVIOUS fill: consumption (km/L) and
- * cost per km (money paid at prev / km driven to the next fill). Keyed by prev id.
- */
-export function fuelStatsByFill(fillups: FuelFillup[]): Record<string, { kmL: number; costPerKm: number }> {
-  const s = fuelSortedAsc(fillups);
-  const map: Record<string, { kmL: number; costPerKm: number }> = {};
-  for (let i = 1; i < s.length; i++) {
-    const prev = s[i - 1], cur = s[i];
-    const km = cur.kmDriven ?? 0;
-    if (km <= 0) continue;
-    const kmL = (prev.liters ?? 0) > 0 ? km / (prev.liters as number) : 0;
-    const costPerKm = prev.totalValue > 0 ? prev.totalValue / km : 0;
-    if (kmL > 0 || costPerKm > 0) map[prev.id] = { kmL, costPerKm };
-  }
-  return map;
-}
-
-/** Average consumption (km/L): total distance over measured segments / total litres. */
+/** Average consumption (km/L): total distance / total litres over fills that recorded both. */
 export function avgConsumption(fillups: FuelFillup[]): number | null {
-  const s = fuelSortedAsc(fillups);
   let km = 0, liters = 0;
-  for (let i = 1; i < s.length; i++) {
-    const prev = s[i - 1], cur = s[i];
-    if ((cur.kmDriven ?? 0) > 0 && (prev.liters ?? 0) > 0) {
-      km += cur.kmDriven as number;
-      liters += prev.liters as number;
+  for (const f of fillups) {
+    if ((f.kmDriven ?? 0) > 0 && (f.liters ?? 0) > 0) {
+      km += f.kmDriven as number;
+      liters += f.liters as number;
     }
   }
   return liters > 0 ? km / liters : null;
 }
 
-/** Average cost per km: total paid over measured segments / total distance. */
+/** Average cost per km: total paid / total distance over fills that recorded km. */
 export function avgCostPerKm(fillups: FuelFillup[]): number | null {
-  const s = fuelSortedAsc(fillups);
   let cost = 0, km = 0;
-  for (let i = 1; i < s.length; i++) {
-    const prev = s[i - 1], cur = s[i];
-    if ((cur.kmDriven ?? 0) > 0 && prev.totalValue > 0) {
-      cost += prev.totalValue;
-      km += cur.kmDriven as number;
+  for (const f of fillups) {
+    if ((f.kmDriven ?? 0) > 0 && f.totalValue > 0) {
+      cost += f.totalValue;
+      km += f.kmDriven as number;
     }
   }
   return km > 0 ? cost / km : null;
