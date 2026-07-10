@@ -19,6 +19,7 @@ export interface Financing {
   color: string | null;
   currentKm: number;
   monthlyCost: number;
+  tankLiters: number | null;
 }
 
 export type MaintenanceStatus = 'pending' | 'done';
@@ -76,11 +77,29 @@ export interface FixedExpense {
 export interface FuelFillup {
   id: string;
   financingId: string;
+  station: string | null;
   date: number | null;
   totalValue: number;
   liters: number | null;
   km: number | null;
+  kmDriven: number | null;
   createdAt: number;
+}
+
+/** Average consumption (km/L) from fill-ups that recorded km driven since a full tank. */
+export function avgConsumption(fillups: FuelFillup[]): number | null {
+  const rel = fillups.filter(f => (f.kmDriven ?? 0) > 0 && (f.liters ?? 0) > 0);
+  if (!rel.length) return null;
+  const km = rel.reduce((s, f) => s + (f.kmDriven as number), 0);
+  const liters = rel.reduce((s, f) => s + (f.liters as number), 0);
+  return liters > 0 ? km / liters : null;
+}
+
+/** Estimated range on a full tank (km) = avg consumption × tank size. */
+export function tankRange(car: Financing, fillups: FuelFillup[]): number | null {
+  const c = avgConsumption(fillups);
+  if (c == null || !car.tankLiters) return null;
+  return c * car.tankLiters;
 }
 
 /** Fuel spend grouped by month, most recent first. */

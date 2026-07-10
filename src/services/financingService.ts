@@ -21,6 +21,7 @@ type FinancingRow = {
   color: string | null;
   current_km: number;
   monthly_cost: number;
+  tank_liters: number | null;
 };
 
 type InstallmentDbRow = {
@@ -61,6 +62,7 @@ const toFinancing = (r: FinancingRow): Financing => ({
   color: r.color,
   currentKm: r.current_km ?? 0,
   monthlyCost: r.monthly_cost ?? 0,
+  tankLiters: r.tank_liters ?? null,
 });
 
 const toPayment = (r: PaymentRow): Payment => ({
@@ -176,6 +178,7 @@ export const financingService = {
     color: string | null;
     currentKm: number;
     monthlyCost: number;
+    tankLiters: number | null;
     carPhotoPath: string | null;
   }): Promise<string> {
     const userId = await getUserId();
@@ -199,6 +202,7 @@ export const financingService = {
       color: params.color,
       current_km: params.currentKm,
       monthly_cost: params.monthlyCost,
+      tank_liters: params.tankLiters,
     });
     if (error) throw new Error(error.message);
     return id;
@@ -214,6 +218,7 @@ export const financingService = {
     color: string | null;
     currentKm: number;
     monthlyCost: number;
+    tankLiters: number | null;
     carPhotoPath: string | null;
   }): Promise<void> {
     const { error } = await supabase
@@ -227,6 +232,7 @@ export const financingService = {
         color: params.color,
         current_km: params.currentKm,
         monthly_cost: params.monthlyCost,
+        tank_liters: params.tankLiters,
         car_photo_path: params.carPhotoPath,
       })
       .eq('id', id);

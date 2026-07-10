@@ -9,6 +9,8 @@ import { useTheme, Theme } from '../theme';
 import { useResponsive } from '../hooks/useResponsive';
 import { useCar } from '../contexts/CarContext';
 import { imageService } from '../services/imageService';
+import { fuelService } from '../services/fuelService';
+import { FuelFillup, avgConsumption, tankRange } from '../types';
 import { sharingService, FinancingMember } from '../services/sharingService';
 import { adminService } from '../services/adminService';
 import { RootStackParamList, TAB_BAR_BOTTOM_OFFSET } from '../navigation';
@@ -25,6 +27,7 @@ export const CarInfoScreen: React.FC = () => {
 
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [members, setMembers] = useState<FinancingMember[]>([]);
+  const [fuel, setFuel] = useState<FuelFillup[]>([]);
   const [showShareModal, setShowShareModal] = useState(false);
   const [shareUsername, setShareUsername] = useState('');
   const [sharePermission, setSharePermission] = useState<'view' | 'edit'>('view');
@@ -34,6 +37,7 @@ export const CarInfoScreen: React.FC = () => {
   useFocusEffect(useCallback(() => {
     reload().catch(() => null);
     sharingService.getMembers(financingId).then(setMembers).catch(() => null);
+    fuelService.listByCar(financingId).then(setFuel).catch(() => null);
   }, [financingId, reload]));
 
   useEffect(() => {
@@ -125,6 +129,27 @@ export const CarInfoScreen: React.FC = () => {
           {car.licensePlate ? <Row label="Placa" value={car.licensePlate} theme={theme} /> : null}
           <Row label="Quilometragem" value={`${car.currentKm.toLocaleString('pt-BR')} km`} theme={theme} />
           {ownerUsername ? <Row label="Dono" value={`@${ownerUsername}`} theme={theme} /> : null}
+        </View>
+
+        <View style={styles.card}>
+          <Text style={styles.membersTitle}>Consumo atual</Text>
+          {(() => {
+            const consumption = avgConsumption(fuel);
+            const range = tankRange(car, fuel);
+            if (consumption == null) {
+              return <Text style={styles.consumptionHint}>Registre abastecimentos com os km rodados no tanque para ver o consumo.</Text>;
+            }
+            return (
+              <>
+                <Row label="Consumo médio" value={`${consumption.toFixed(1)} km/L`} theme={theme} />
+                {range != null ? (
+                  <Row label="Autonomia (tanque cheio)" value={`${Math.round(range).toLocaleString('pt-BR')} km`} theme={theme} />
+                ) : (
+                  <Text style={styles.consumptionHint}>Informe os litros do tanque (Editar) para estimar a autonomia.</Text>
+                )}
+              </>
+            );
+          })()}
         </View>
 
         {!readOnly && members.length > 0 && (
@@ -252,6 +277,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   suggestionRow: { flexDirection: 'row', alignItems: 'center', gap: 8, padding: 10, borderBottomWidth: StyleSheet.hairlineWidth, borderColor: theme.separator },
   suggestionUser: { fontSize: 14, fontWeight: '600', color: theme.text },
   membersTitle: { fontSize: 11, fontWeight: '700', letterSpacing: 0.5, color: theme.textSecondary, textTransform: 'uppercase', marginBottom: 8 },
+  consumptionHint: { fontSize: 13, color: theme.textSecondary, lineHeight: 18 },
   memberRow: { flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 6 },
   memberAvatar: { width: 28, height: 28, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
   memberUsername: { fontSize: 14, fontWeight: '600', color: theme.text, flex: 1 },

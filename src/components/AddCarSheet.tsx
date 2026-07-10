@@ -9,7 +9,6 @@ import { useTheme, Theme } from '../theme';
 import { useResponsive } from '../hooks/useResponsive';
 import { financingService } from '../services/financingService';
 import { imageService } from '../services/imageService';
-import { CurrencyInput } from './CurrencyInput';
 import { showAlert } from '../utils/dialogs';
 
 interface Props {
@@ -30,17 +29,17 @@ export const AddCarSheet: React.FC<Props> = ({ visible, onClose, onCreated }) =>
   const [year, setYear] = useState('');
   const [color, setColor] = useState('');
   const [kmText, setKmText] = useState('');
-  const [monthlyCents, setMonthlyCents] = useState(0);
+  const [tankLitersText, setTankLitersText] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
 
   const reset = () => {
     setCarName(''); setLicensePlate(''); setBrand(''); setModel('');
-    setYear(''); setColor(''); setKmText(''); setMonthlyCents(0); setPhotoUri(null);
+    setYear(''); setColor(''); setKmText(''); setTankLitersText(''); setPhotoUri(null);
   };
 
   const pickPhoto = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.5 });
     if (!result.canceled && result.assets[0]) setPhotoUri(result.assets[0].uri);
   };
 
@@ -58,7 +57,8 @@ export const AddCarSheet: React.FC<Props> = ({ visible, onClose, onCreated }) =>
         year: parseInt(year, 10) || null,
         color: color.trim() || null,
         currentKm: parseInt(kmText.replace(/\D/g, ''), 10) || 0,
-        monthlyCost: monthlyCents / 100,
+        monthlyCost: 0,
+        tankLiters: parseFloat(tankLitersText.replace(',', '.')) || null,
         carPhotoPath: null,
       });
 
@@ -73,7 +73,8 @@ export const AddCarSheet: React.FC<Props> = ({ visible, onClose, onCreated }) =>
             year: parseInt(year, 10) || null,
             color: color.trim() || null,
             currentKm: parseInt(kmText.replace(/\D/g, ''), 10) || 0,
-            monthlyCost: monthlyCents / 100,
+            monthlyCost: 0,
+            tankLiters: parseFloat(tankLitersText.replace(',', '.')) || null,
             carPhotoPath: path,
           });
         } catch { /* photo is best-effort */ }
@@ -142,8 +143,15 @@ export const AddCarSheet: React.FC<Props> = ({ visible, onClose, onCreated }) =>
             </View>
             <View style={styles.sep} />
             <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>Gasto mensal fixo</Text>
-              <CurrencyInput cents={monthlyCents} onChange={setMonthlyCents} />
+              <Text style={styles.fieldLabel}>Litros do tanque</Text>
+              <TextInput
+                style={styles.inlineInput}
+                value={tankLitersText}
+                onChangeText={setTankLitersText}
+                keyboardType="decimal-pad"
+                placeholder="opcional"
+                placeholderTextColor={theme.textTertiary}
+              />
             </View>
           </View>
 

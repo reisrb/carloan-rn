@@ -14,7 +14,6 @@ import { FinancingWithInstallments } from '../types';
 import { financingService } from '../services/financingService';
 import { imageService } from '../services/imageService';
 import { sharingService, FinancingMember } from '../services/sharingService';
-import { CurrencyInput } from '../components/CurrencyInput';
 import { RootStackParamList, TAB_BAR_BOTTOM_OFFSET } from '../navigation';
 import { showAlert, showConfirm } from '../utils/dialogs';
 
@@ -39,7 +38,7 @@ export const EditCarScreen: React.FC = () => {
   const [year, setYear] = useState('');
   const [color, setColor] = useState('');
   const [kmText, setKmText] = useState('');
-  const [monthlyCents, setMonthlyCents] = useState(0);
+  const [tankLitersText, setTankLitersText] = useState('');
   const [photoUri, setPhotoUri] = useState<string | null>(null);
   const [photoUrl, setPhotoUrl] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
@@ -53,7 +52,7 @@ export const EditCarScreen: React.FC = () => {
         setCarName(f.carName); setLicensePlate(f.licensePlate);
         setBrand(f.brand ?? ''); setModel(f.model ?? '');
         setYear(f.year != null ? String(f.year) : ''); setColor(f.color ?? '');
-        setKmText(String(f.currentKm)); setMonthlyCents(Math.round(f.monthlyCost * 100));
+        setKmText(String(f.currentKm)); setTankLitersText(f.tankLiters != null ? String(f.tankLiters) : '');
         if (f.carPhotoPath) setPhotoUrl(await imageService.getSignedUrl(f.carPhotoPath));
       })
       .catch(() => null)
@@ -65,7 +64,7 @@ export const EditCarScreen: React.FC = () => {
   }
 
   const pickPhoto = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.5 });
     if (!result.canceled && result.assets[0]) setPhotoUri(result.assets[0].uri);
   };
 
@@ -87,7 +86,8 @@ export const EditCarScreen: React.FC = () => {
         year: parseInt(year, 10) || null,
         color: color.trim() || null,
         currentKm: parseInt(kmText.replace(/\D/g, ''), 10) || 0,
-        monthlyCost: monthlyCents / 100,
+        monthlyCost: car.monthlyCost,
+        tankLiters: parseFloat(tankLitersText.replace(',', '.')) || null,
         carPhotoPath,
       });
       navigation.goBack();
@@ -151,7 +151,7 @@ export const EditCarScreen: React.FC = () => {
           <TextInput style={styles.input} value={color} onChangeText={setColor} placeholder="Cor" placeholderTextColor={theme.textSecondary} />
         </View>
 
-        <Text style={styles.sectionHeader}>CUSTOS</Text>
+        <Text style={styles.sectionHeader}>USO</Text>
         <View style={styles.card}>
           <View style={styles.fieldRow}>
             <Text style={styles.fieldLabel}>Quilometragem atual</Text>
@@ -159,8 +159,8 @@ export const EditCarScreen: React.FC = () => {
           </View>
           <View style={styles.sep} />
           <View style={styles.fieldRow}>
-            <Text style={styles.fieldLabel}>Gasto mensal fixo</Text>
-            <CurrencyInput cents={monthlyCents} onChange={setMonthlyCents} />
+            <Text style={styles.fieldLabel}>Litros do tanque</Text>
+            <TextInput style={styles.inlineInput} value={tankLitersText} onChangeText={setTankLitersText} keyboardType="decimal-pad" placeholder="opcional" placeholderTextColor={theme.textTertiary} />
           </View>
         </View>
 
