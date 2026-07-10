@@ -30,6 +30,7 @@ export const FuelScreen: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [view, setView] = useState<View2>('list');
   const [showSheet, setShowSheet] = useState(false);
+  const [editing, setEditing] = useState<FuelFillup | null>(null);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -82,7 +83,7 @@ export const FuelScreen: React.FC = () => {
                 <Text style={styles.emptySub}>Toque em + para registrar um abastecimento.</Text>
               </View>
             ) : items.map(f => (
-              <View key={f.id} style={styles.row}>
+              <TouchableOpacity key={f.id} style={styles.row} activeOpacity={0.7} disabled={readOnly} onPress={() => { setEditing(f); setShowSheet(true); }}>
                 <View style={styles.rowBody}>
                   <View style={styles.rowTop}>
                     <Text style={styles.rowValue}>{formatBRL(f.totalValue)}</Text>
@@ -91,7 +92,7 @@ export const FuelScreen: React.FC = () => {
                     )}
                   </View>
                   <Text style={styles.rowMeta}>
-                    {[f.station, f.date != null ? formatDate(f.date) : null, f.liters != null ? `${f.liters} L` : null, f.kmDriven != null ? `${f.kmDriven.toLocaleString('pt-BR')} km rodados` : null].filter(Boolean).join(' · ') || '—'}
+                    {[f.station, f.date != null ? formatDate(f.date) : null, f.liters != null ? `${f.liters.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} L` : null, f.kmDriven != null ? `${f.kmDriven.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} km rodados` : null].filter(Boolean).join(' · ') || '—'}
                   </Text>
                 </View>
                 {!readOnly && (
@@ -99,7 +100,7 @@ export const FuelScreen: React.FC = () => {
                     <Ionicons name="close-circle" size={18} color={theme.textSecondary} />
                   </TouchableOpacity>
                 )}
-              </View>
+              </TouchableOpacity>
             ))
           ) : (
             <>
@@ -129,12 +130,12 @@ export const FuelScreen: React.FC = () => {
       )}
 
       {!readOnly && view === 'list' && (
-        <TouchableOpacity style={[styles.fab, { bottom: TAB_BAR_BOTTOM_OFFSET + 16 }]} onPress={() => setShowSheet(true)} activeOpacity={0.85}>
+        <TouchableOpacity style={[styles.fab, { bottom: TAB_BAR_BOTTOM_OFFSET + 16 }]} onPress={() => { setEditing(null); setShowSheet(true); }} activeOpacity={0.85}>
           <Ionicons name="add" size={30} color="#000" />
         </TouchableOpacity>
       )}
 
-      <AddFuelSheet visible={showSheet} financingId={financingId} onClose={() => setShowSheet(false)} onSaved={() => { setShowSheet(false); load(); }} />
+      <AddFuelSheet visible={showSheet} financingId={financingId} existing={editing} onClose={() => { setShowSheet(false); setEditing(null); }} onSaved={() => { setShowSheet(false); setEditing(null); load(); }} />
     </View>
   );
 };

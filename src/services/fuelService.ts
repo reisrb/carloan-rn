@@ -64,6 +64,18 @@ export const fuelService = {
     if (error) throw new Error(error.message);
   },
 
+  async update(id: string, input: FuelInput): Promise<void> {
+    const { error } = await supabase.from('fuel_fillups').update({
+      station: input.station,
+      date: input.date,
+      total_value: input.totalValue,
+      liters: input.liters,
+      km: input.km,
+      km_driven: input.kmDriven,
+    }).eq('id', id);
+    if (error) throw new Error(error.message);
+  },
+
   async remove(id: string): Promise<void> {
     const { error } = await supabase.from('fuel_fillups').delete().eq('id', id);
     if (error) throw new Error(error.message);

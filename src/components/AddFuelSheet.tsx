@@ -7,13 +7,15 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, Theme, formatBRL } from '../theme';
 import { useResponsive } from '../hooks/useResponsive';
 import { fuelService } from '../services/fuelService';
+import { FuelFillup } from '../types';
 import { CurrencyInput } from './CurrencyInput';
-import { parseDate } from '../utils/date';
+import { formatDate, parseDate } from '../utils/date';
 import { showAlert } from '../utils/dialogs';
 
 interface Props {
   visible: boolean;
   financingId: string;
+  existing?: FuelFillup | null;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -24,9 +26,24 @@ const dateMask = (t: string): string => {
   if (d.length > 2) return `${d.slice(0, 2)}/${d.slice(2)}`;
   return d;
 };
-const groupKm = (t: string) => t.replace(/\D/g, '').slice(0, 7).replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+// Right-to-left decimal masks: liters "45,678" (3 dec), km driven "321,32" (2 dec).
+const litersMask = (t: string): string => {
+  const d = t.replace(/\D/g, '').slice(0, 6);
+  if (!d) return '';
+  const p = d.padStart(4, '0');
+  const int = p.slice(0, -3).replace(/^0+(?=\d)/, '') || '0';
+  return `${int},${p.slice(-3)}`;
+};
+const kmMask = (t: string): string => {
+  const d = t.replace(/\D/g, '').slice(0, 7);
+  if (!d) return '';
+  const p = d.padStart(3, '0');
+  const int = (p.slice(0, -2).replace(/^0+(?=\d)/, '') || '0').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  return `${int},${p.slice(-2)}`;
+};
+const digitsToNum = (t: string, div: number) => (parseInt(t.replace(/\D/g, '') || '0', 10) || 0) / div;
 
-export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, onClose, onSaved }) => {
+export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, onClose, onSaved }) => {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { contentStyle } = useResponsive();
@@ -38,11 +55,20 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, onClose, o
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    if (visible) { setStation(''); setDateText(''); setCents(0); setLitersText(''); setKmDrivenText(''); }
-  }, [visible]);
+    if (!visible) return;
+    if (existing) {
+      setStation(existing.station ?? '');
+      setDateText(existing.date != null ? formatDate(existing.date) : '');
+      setCents(Math.round(existing.totalValue * 100));
+      setLitersText(existing.liters != null ? litersMask(String(Math.round(existing.liters * 1000))) : '');
+      setKmDrivenText(existing.kmDriven != null ? kmMask(String(Math.round(existing.kmDriven * 100))) : '');
+    } else {
+      setStation(''); setDateText(''); setCents(0); setLitersText(''); setKmDrivenText('');
+    }
+  }, [visible, existing]);
 
-  const liters = parseFloat(litersText.replace(',', '.')) || 0;
-  const kmDriven = parseInt(kmDrivenText.replace(/\D/g, ''), 10) || 0;
+  const liters = digitsToNum(litersText, 1000);
+  const kmDriven = digitsToNum(kmDrivenText, 100);
   const pricePerLiter = liters > 0 ? cents / 100 / liters : 0;
   const consumption = liters > 0 && kmDriven > 0 ? kmDriven / liters : 0;
 
@@ -50,14 +76,16 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, onClose, o
     if (cents <= 0) { showAlert('Erro', 'Informe o valor do abastecimento.'); return; }
     setSaving(true);
     try {
-      await fuelService.create(financingId, {
+      const input = {
         station: station.trim() || null,
         date: parseDate(dateText),
         totalValue: cents / 100,
         liters: liters || null,
-        km: null,
+        km: existing?.km ?? null,
         kmDriven: kmDriven || null,
-      });
+      };
+      if (existing) await fuelService.update(existing.id, input);
+      else await fuelService.create(financingId, input);
       onSaved();
     } catch (e: any) {
       showAlert('Erro ao salvar', e?.message ?? 'Tente novamente');
@@ -70,7 +98,7 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, onClose, o
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: theme.bg }}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Novo abastecimento</Text>
+          <Text style={styles.headerTitle}>{existing ? 'Editar abastecimento' : 'Novo abastecimento'}</Text>
           <TouchableOpacity onPress={onClose}><Ionicons name="close" size={24} color={theme.textSecondary} /></TouchableOpacity>
         </View>
         <ScrollView contentContainerStyle={[styles.body, contentStyle]} keyboardShouldPersistTaps="handled">
@@ -88,7 +116,7 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, onClose, o
             <View style={styles.sep} />
             <View style={styles.fieldRow}>
               <Text style={styles.fieldLabel}>Litros</Text>
-              <TextInput style={styles.inlineInput} value={litersText} onChangeText={setLitersText} keyboardType="decimal-pad" placeholder="0" placeholderTextColor={theme.textTertiary} />
+              <TextInput style={styles.inlineInput} value={litersText} onChangeText={t => setLitersText(litersMask(t))} keyboardType="numeric" placeholder="0,000" placeholderTextColor={theme.textTertiary} />
             </View>
             <View style={styles.sep} />
             <View style={styles.fieldRow}>
@@ -101,7 +129,7 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, onClose, o
           <View style={styles.card}>
             <View style={styles.fieldRow}>
               <Text style={styles.fieldLabel}>Km rodados no tanque</Text>
-              <TextInput style={styles.inlineInput} value={kmDrivenText} onChangeText={t => setKmDrivenText(groupKm(t))} keyboardType="numeric" placeholder="opcional" placeholderTextColor={theme.textTertiary} />
+              <TextInput style={styles.inlineInput} value={kmDrivenText} onChangeText={t => setKmDrivenText(kmMask(t))} keyboardType="numeric" placeholder="0,00" placeholderTextColor={theme.textTertiary} />
             </View>
             <View style={styles.sep} />
             <View style={styles.fieldRow}>
