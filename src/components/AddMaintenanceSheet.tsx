@@ -5,7 +5,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import * as ImagePicker from 'expo-image-picker';
-import { useTheme, Theme } from '../theme';
+import { useTheme, Theme, formatBRL } from '../theme';
 import { useResponsive } from '../hooks/useResponsive';
 import { Maintenance, MaintenanceStatus } from '../types';
 import { maintenanceService } from '../services/maintenanceService';
@@ -39,7 +39,7 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
 
   const [status, setStatus] = useState<MaintenanceStatus>('pending');
   const [description, setDescription] = useState('');
-  const [itemCents, setItemCents] = useState(0);
+  const [items, setItems] = useState<{ name: string; cents: number }[]>([]);
   const [laborCents, setLaborCents] = useState(0);
   const [totalCents, setTotalCents] = useState(0);
   const [totalTouched, setTotalTouched] = useState(false);
@@ -59,7 +59,7 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
       setDescription(existing.description);
       setTotalCents(Math.round(existing.totalValue * 100));
       setTotalTouched(existing.totalValue !== existing.itemValue + existing.laborValue);
-      setItemCents(Math.round(existing.itemValue * 100));
+      setItems((existing.items ?? []).map(it => ({ name: it.name, cents: Math.round(it.value * 100) })));
       setLaborCents(Math.round(existing.laborValue * 100));
       setServiceDateText(existing.serviceDate ? formatDate(existing.serviceDate) : '');
       setKmText(existing.kmAtService != null ? String(existing.kmAtService) : String(currentKm));
@@ -69,16 +69,23 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
       setExistingReceipts(existing.receiptPaths ?? []);
       setNewReceiptUris([]);
     } else {
-      setStatus('pending'); setDescription(''); setTotalCents(0); setTotalTouched(false); setItemCents(0); setLaborCents(0);
+      setStatus('pending'); setDescription(''); setTotalCents(0); setTotalTouched(false); setItems([]); setLaborCents(0);
       setServiceDateText(''); setKmText(String(currentKm)); setPurchaseDateText(''); setDueKmText(''); setDueDateText('');
       setExistingReceipts([]); setNewReceiptUris([]);
     }
   }, [visible, existing, currentKm]);
 
-  // Auto-fill total from item + labor while the user hasn't overridden it.
+  const itemsCents = items.reduce((s, it) => s + it.cents, 0);
+
+  // Auto-fill total from items + labor while the user hasn't overridden it.
   useEffect(() => {
-    if (!totalTouched) setTotalCents(itemCents + laborCents);
-  }, [itemCents, laborCents, totalTouched]);
+    if (!totalTouched) setTotalCents(itemsCents + laborCents);
+  }, [itemsCents, laborCents, totalTouched]);
+
+  const addItem = () => setItems(cur => [...cur, { name: '', cents: 0 }]);
+  const updateItem = (idx: number, patch: Partial<{ name: string; cents: number }>) =>
+    setItems(cur => cur.map((it, i) => (i === idx ? { ...it, ...patch } : it)));
+  const removeItem = (idx: number) => setItems(cur => cur.filter((_, i) => i !== idx));
 
   const pickReceipt = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
@@ -99,11 +106,16 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
       }
       const receiptPaths = status === 'done' ? [...existingReceipts, ...uploaded] : [];
 
+      const cleanItems = items
+        .filter(it => it.name.trim() || it.cents > 0)
+        .map(it => ({ name: it.name.trim() || 'Item', value: it.cents / 100 }));
+
       const input = {
         status,
         description: desc,
+        items: status === 'done' ? cleanItems : [],
         totalValue: status === 'done' ? totalCents / 100 : 0,
-        itemValue: status === 'done' ? itemCents / 100 : 0,
+        itemValue: status === 'done' ? itemsCents / 100 : 0,
         laborValue: status === 'done' ? laborCents / 100 : 0,
         serviceDate: status === 'done' ? parseDate(serviceDateText) : null,
         kmAtService,
@@ -157,15 +169,54 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
 
           {status === 'done' ? (
             <>
+              <Text style={styles.sectionHeader}>ITENS</Text>
+              <View style={styles.card}>
+                {items.length === 0 && <Text style={styles.itemsEmpty}>Adicione os itens comprados (ex: radiador, líquido).</Text>}
+                {items.map((it, idx) => (
+                  <View key={idx}>
+                    {idx > 0 && <View style={styles.sep} />}
+                    <View style={styles.itemRow}>
+                      <TextInput
+                        style={styles.itemName}
+                        value={it.name}
+                        onChangeText={t => updateItem(idx, { name: t })}
+                        placeholder="Item"
+                        placeholderTextColor={theme.textTertiary}
+                      />
+                      <CurrencyInput cents={it.cents} onChange={c => updateItem(idx, { cents: c })} />
+                      <TouchableOpacity onPress={() => removeItem(idx)} style={styles.itemRemove}>
+                        <Ionicons name="close-circle" size={20} color={theme.textSecondary} />
+                      </TouchableOpacity>
+                    </View>
+                  </View>
+                ))}
+                <View style={styles.sep} />
+                <TouchableOpacity style={styles.addItemRow} onPress={addItem} activeOpacity={0.7}>
+                  <Ionicons name="add-circle-outline" size={20} color={theme.accentDark} />
+                  <Text style={styles.addItemText}>Adicionar item</Text>
+                </TouchableOpacity>
+              </View>
+
               <Text style={styles.sectionHeader}>CUSTOS</Text>
               <View style={styles.card}>
-                <View style={styles.fieldRow}><Text style={styles.fieldLabel}>Valor do item</Text><CurrencyInput cents={itemCents} onChange={setItemCents} /></View>
+                <View style={styles.fieldRow}><Text style={styles.fieldLabel}>Itens</Text><Text style={styles.readonlyValue}>{formatBRL(itemsCents / 100)}</Text></View>
                 <View style={styles.sep} />
                 <View style={styles.fieldRow}><Text style={styles.fieldLabel}>Mão de obra</Text><CurrencyInput cents={laborCents} onChange={setLaborCents} /></View>
                 <View style={styles.sep} />
                 <View style={styles.fieldRow}>
-                  <Text style={styles.fieldLabel}>Valor total</Text>
-                  <CurrencyInput cents={totalCents} onChange={(v) => { setTotalCents(v); setTotalTouched(true); }} />
+                  <View style={styles.totalLabelWrap}>
+                    <Text style={styles.fieldLabel}>Valor total</Text>
+                    {totalTouched && (
+                      <TouchableOpacity style={styles.rollbackBtn} onPress={() => setTotalTouched(false)} activeOpacity={0.7}>
+                        <Ionicons name="arrow-undo-outline" size={13} color={theme.accentDark} />
+                        <Text style={styles.rollbackText}>voltar ao cálculo</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                  <CurrencyInput
+                    cents={totalCents}
+                    onChange={(v) => { if (v === 0) { setTotalTouched(false); } else { setTotalCents(v); setTotalTouched(true); } }}
+                  />
                 </View>
               </View>
 
@@ -256,7 +307,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   sectionHeader: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, marginTop: 8, marginBottom: -4, letterSpacing: 0.5 },
   fieldRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, gap: 12 },
   fieldLabel: { fontSize: 14, color: theme.text, fontWeight: '500' },
+  totalLabelWrap: { gap: 3 },
+  rollbackBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  rollbackText: { fontSize: 12, fontWeight: '600', color: theme.accentDark },
   inlineInput: { fontSize: 16, color: theme.text, paddingVertical: 14, minWidth: 120, textAlign: 'right' },
+  readonlyValue: { fontSize: 16, fontWeight: '700', color: theme.textSecondary, paddingVertical: 14 },
+  itemsEmpty: { fontSize: 13, color: theme.textSecondary, paddingHorizontal: 16, paddingTop: 14, paddingBottom: 4 },
+  itemRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16 },
+  itemName: { flex: 1, fontSize: 16, color: theme.text, paddingVertical: 14 },
+  itemRemove: { padding: 2 },
+  addItemRow: { flexDirection: 'row', alignItems: 'center', gap: 8, paddingHorizontal: 16, paddingVertical: 14 },
+  addItemText: { fontSize: 15, fontWeight: '600', color: theme.accentDark },
   receipts: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
   receiptItem: { position: 'relative' },
   receiptThumb: { width: 72, height: 72, borderRadius: 12, backgroundColor: theme.separator },

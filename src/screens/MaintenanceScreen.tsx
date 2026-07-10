@@ -100,8 +100,19 @@ export const MaintenanceScreen: React.FC = () => {
               <Text style={styles.cardTitle} numberOfLines={2}>{m.description}</Text>
               <Text style={styles.cardTotal}>{formatBRL(m.totalValue)}</Text>
             </View>
+            {m.items.length > 0 && (
+              <View style={styles.itemsBox}>
+                {m.items.map((it, i) => (
+                  <View key={i} style={styles.itemLine}>
+                    <View style={styles.itemBullet} />
+                    <Text style={styles.itemName} numberOfLines={1}>{it.name}</Text>
+                    <Text style={styles.itemValue}>{formatBRL(it.value)}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
             <View style={styles.detailRows}>
-              {m.itemValue > 0 && <Detail label="Item" value={formatBRL(m.itemValue)} theme={theme} />}
+              {m.items.length === 0 && m.itemValue > 0 && <Detail label="Itens" value={formatBRL(m.itemValue)} theme={theme} />}
               {m.laborValue > 0 && <Detail label="Mão de obra" value={formatBRL(m.laborValue)} theme={theme} />}
               {m.serviceDate != null && <Detail label="Data" value={formatDate(m.serviceDate)} theme={theme} />}
               {m.kmAtService != null && <Detail label="Km" value={`${m.kmAtService.toLocaleString('pt-BR')} km`} theme={theme} />}
@@ -160,6 +171,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   badge: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   badgeText: { fontSize: 12, fontWeight: '700' },
   detailRows: { marginTop: 8 },
+  itemsBox: { marginTop: 8, gap: 4 },
+  itemLine: { flexDirection: 'row', alignItems: 'center', gap: 8 },
+  itemBullet: { width: 5, height: 5, borderRadius: 3, backgroundColor: theme.accentDark },
+  itemName: { flex: 1, fontSize: 13, color: theme.text },
+  itemValue: { fontSize: 13, fontWeight: '600', color: theme.text },
   receiptRow: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 10 },
   deleteRow: { flexDirection: 'row', alignItems: 'center', gap: 5, alignSelf: 'flex-start', marginTop: 10 },
   deleteText: { fontSize: 13, fontWeight: '600', color: theme.spend },

@@ -23,11 +23,17 @@ export interface Financing {
 
 export type MaintenanceStatus = 'pending' | 'done';
 
+export interface MaintenanceItem {
+  name: string;
+  value: number;
+}
+
 export interface Maintenance {
   id: string;
   financingId: string;
   status: MaintenanceStatus;
   description: string;
+  items: MaintenanceItem[];
   totalValue: number;
   itemValue: number;
   laborValue: number;
