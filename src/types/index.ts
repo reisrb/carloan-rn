@@ -200,11 +200,11 @@ export function fuelByMonth(fillups: FuelFillup[]): { key: string; label: string
     .map(([key, v]) => ({ key, label: v.label, total: v.total }));
 }
 
-/** Average fuel spend per month (across months that have fill-ups). */
+/** Average fuel spend per month over the last 3 months with fill-ups. */
 export function fuelMonthlyAverage(fillups: FuelFillup[]): number {
-  const months = fuelByMonth(fillups);
-  if (!months.length) return 0;
-  return months.reduce((s, m) => s + m.total, 0) / months.length;
+  const recent = fuelByMonth(fillups).slice(0, 3); // fuelByMonth is most-recent first
+  if (!recent.length) return 0;
+  return recent.reduce((s, m) => s + m.total, 0) / recent.length;
 }
 
 export interface Payment {
