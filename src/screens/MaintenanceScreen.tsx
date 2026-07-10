@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Share } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Share, Platform } from 'react-native';
 import * as Print from 'expo-print';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -108,8 +108,13 @@ export const MaintenanceScreen: React.FC = () => {
   const exportPdf = async () => {
     try {
       const html = buildHtml(items.filter(m => m.status === 'pending'), items.filter(m => m.status === 'done'));
-      const file = await Print.printToFileAsync({ html, base64: false });
-      await Share.share({ url: file.uri, title: `Manutenções — ${car?.carName ?? 'Carro'}` });
+      if (Platform.OS === 'web') {
+        // printToFileAsync is unsupported on web; open the browser print dialog (save as PDF).
+        await Print.printAsync({ html });
+      } else {
+        const file = await Print.printToFileAsync({ html, base64: false });
+        await Share.share({ url: file.uri, title: `Manutenções — ${car?.carName ?? 'Carro'}` });
+      }
     } catch (e: any) {
       showAlert('Erro', e?.message ?? 'Não foi possível exportar');
     }
