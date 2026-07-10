@@ -5,28 +5,34 @@ import { FuelFillup } from '../types';
 type FuelRow = {
   id: string;
   financing_id: string;
+  station: string | null;
   date: number | null;
   total_value: number;
   liters: number | null;
   km: number | null;
+  km_driven: number | null;
   created_at: number;
 };
 
 const toFillup = (r: FuelRow): FuelFillup => ({
   id: r.id,
   financingId: r.financing_id,
+  station: r.station,
   date: r.date,
   totalValue: r.total_value,
   liters: r.liters,
   km: r.km,
+  kmDriven: r.km_driven,
   createdAt: r.created_at,
 });
 
 export interface FuelInput {
+  station: string | null;
   date: number | null;
   totalValue: number;
   liters: number | null;
   km: number | null;
+  kmDriven: number | null;
 }
 
 export const fuelService = {
@@ -47,10 +53,12 @@ export const fuelService = {
       id: generateId(),
       user_id: userId,
       financing_id: financingId,
+      station: input.station,
       date: input.date,
       total_value: input.totalValue,
       liters: input.liters,
       km: input.km,
+      km_driven: input.kmDriven,
       created_at: Date.now(),
     });
     if (error) throw new Error(error.message);

@@ -1,3 +1,4 @@
+import { Platform } from 'react-native';
 import { supabase, getUserId } from '../lib/supabase';
 import { generateId } from '../theme';
 import * as FileSystem from 'expo-file-system';
@@ -38,11 +39,36 @@ async function uriToArrayBuffer(uri: string): Promise<ArrayBuffer> {
   return await res.arrayBuffer();
 }
 
+// Web: downscale + recompress the image in-browser (canvas) before upload so
+// car photos stay small and load fast. No-op fallback to raw bytes on failure.
+async function toUploadBody(uri: string, maxDim = 1000, quality = 0.5): Promise<ArrayBuffer> {
+  if (Platform.OS !== 'web') return uriToArrayBuffer(uri);
+  try {
+    const img = await new Promise<HTMLImageElement>((resolve, reject) => {
+      const el = new Image();
+      el.onload = () => resolve(el);
+      el.onerror = reject;
+      el.src = uri;
+    });
+    const scale = Math.min(1, maxDim / Math.max(img.width, img.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.max(1, Math.round(img.width * scale));
+    canvas.height = Math.max(1, Math.round(img.height * scale));
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return uriToArrayBuffer(uri);
+    ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+    const blob = await new Promise<Blob | null>(res => canvas.toBlob(res, 'image/jpeg', quality));
+    return blob ? await blob.arrayBuffer() : uriToArrayBuffer(uri);
+  } catch {
+    return uriToArrayBuffer(uri);
+  }
+}
+
 export const imageService = {
   async uploadCarPhoto(financingId: string, uri: string): Promise<string> {
     const userId = await getUserId();
     const path = `${userId}/${financingId}-car-${generateId()}.jpg`;
-    const body = await uriToArrayBuffer(uri);
+    const body = await toUploadBody(uri);
     const { error } = await supabase.storage.from(BUCKET).upload(path, body, {
       contentType: 'image/jpeg',
       upsert: true,
@@ -54,7 +80,7 @@ export const imageService = {
   async uploadReceipt(uri: string): Promise<string> {
     const userId = await getUserId();
     const path = `${userId}/receipts/${generateId()}.jpg`;
-    const body = await uriToArrayBuffer(uri);
+    const body = await toUploadBody(uri, 1400, 0.6);
     const { error } = await supabase.storage.from(BUCKET).upload(path, body, {
       contentType: 'image/jpeg',
     });

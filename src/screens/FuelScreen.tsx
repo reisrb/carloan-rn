@@ -84,9 +84,14 @@ export const FuelScreen: React.FC = () => {
             ) : items.map(f => (
               <View key={f.id} style={styles.row}>
                 <View style={styles.rowBody}>
-                  <Text style={styles.rowValue}>{formatBRL(f.totalValue)}</Text>
+                  <View style={styles.rowTop}>
+                    <Text style={styles.rowValue}>{formatBRL(f.totalValue)}</Text>
+                    {f.kmDriven != null && f.liters != null && f.liters > 0 && (
+                      <Text style={styles.rowConsumption}>{(f.kmDriven / f.liters).toFixed(1)} km/L</Text>
+                    )}
+                  </View>
                   <Text style={styles.rowMeta}>
-                    {[f.date != null ? formatDate(f.date) : null, f.liters != null ? `${f.liters} L` : null, f.km != null ? `${f.km.toLocaleString('pt-BR')} km` : null].filter(Boolean).join(' · ') || '—'}
+                    {[f.station, f.date != null ? formatDate(f.date) : null, f.liters != null ? `${f.liters} L` : null, f.kmDriven != null ? `${f.kmDriven.toLocaleString('pt-BR')} km rodados` : null].filter(Boolean).join(' · ') || '—'}
                   </Text>
                 </View>
                 {!readOnly && (
@@ -129,7 +134,7 @@ export const FuelScreen: React.FC = () => {
         </TouchableOpacity>
       )}
 
-      <AddFuelSheet visible={showSheet} financingId={financingId} defaultKm={currentKm ?? 0} onClose={() => setShowSheet(false)} onSaved={() => { setShowSheet(false); load(); }} />
+      <AddFuelSheet visible={showSheet} financingId={financingId} onClose={() => setShowSheet(false)} onSaved={() => { setShowSheet(false); load(); }} />
     </View>
   );
 };
@@ -151,7 +156,9 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   emptySub: { fontSize: 14, color: theme.textSecondary, textAlign: 'center', lineHeight: 20, marginHorizontal: 20, marginTop: 12 },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12, marginHorizontal: 16, marginTop: 10, backgroundColor: theme.card, borderRadius: 14, padding: 14, ...theme.shadow },
   rowBody: { flex: 1, gap: 2 },
+  rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   rowValue: { fontSize: 16, fontWeight: '800', color: theme.text },
+  rowConsumption: { fontSize: 13, fontWeight: '700', color: theme.accentDark },
   rowMeta: { fontSize: 13, color: theme.textSecondary },
   removeBtn: { padding: 2 },
   card: { marginHorizontal: 16, marginTop: 12, backgroundColor: theme.card, borderRadius: 16, padding: 16, ...theme.shadow },
