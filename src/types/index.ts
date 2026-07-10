@@ -112,22 +112,19 @@ export function fuelStatsByFill(fillups: FuelFillup[]): Record<string, { kmL: nu
   return map;
 }
 
-/** Best consumption (km/L) grouped by the PREVIOUS station's attribute. Best first. */
+/** Latest consumption (km/L) per PREVIOUS station's attribute. Best first. */
 function fuelConsumptionByKey(fillups: FuelFillup[], keyOf: (f: FuelFillup) => string): { key: string; kmL: number }[] {
   const s = fuelSortedAsc(fillups);
-  const agg: Record<string, { km: number; liters: number }> = {};
+  const last: Record<string, number> = {};
   for (let i = 1; i < s.length; i++) {
     const prev = s[i - 1], cur = s[i];
     if ((cur.kmDriven ?? 0) > 0 && (cur.liters ?? 0) > 0) {
-      const key = keyOf(prev);
-      const a = agg[key] ?? { km: 0, liters: 0 };
-      a.km += cur.kmDriven as number;
-      a.liters += cur.liters as number;
-      agg[key] = a;
+      // ascending order → later iterations overwrite, keeping the most recent value.
+      last[keyOf(prev)] = (cur.kmDriven as number) / (cur.liters as number);
     }
   }
-  return Object.entries(agg)
-    .map(([key, v]) => ({ key, kmL: v.liters > 0 ? v.km / v.liters : 0 }))
+  return Object.entries(last)
+    .map(([key, kmL]) => ({ key, kmL }))
     .filter(x => x.kmL > 0)
     .sort((a, b) => b.kmL - a.kmL);
 }
