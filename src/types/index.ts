@@ -88,14 +88,16 @@ export interface FuelFillup {
   createdAt: number;
 }
 
-// Consumption is measured per segment between consecutive fill-ups, attributed to
-// the PREVIOUS fill: km driven (entered at the NEXT fill) ÷ litres of THIS fill.
-// So a fill only gets a consumption once the next fill records its km.
+// Consumption belongs to the PREVIOUS station. When you fuel at a station you
+// record the km driven since the last fill and the litres put in now:
+//   consumption(previous station) = kmDriven(this fill) / litres(this fill)
+// A station only gets a value once the NEXT fill records those numbers, so the
+// most recent fill has no consumption yet.
 function fuelSortedAsc(fillups: FuelFillup[]): FuelFillup[] {
   return [...fillups].sort((a, b) => (a.date ?? a.createdAt) - (b.date ?? b.createdAt));
 }
 
-/** Per-fill stats keyed by the PREVIOUS fill's id: consumption (km/L) and cost per km. */
+/** Stats keyed by the PREVIOUS fill's id, from THIS fill's km + litres + spend. */
 export function fuelStatsByFill(fillups: FuelFillup[]): Record<string, { kmL: number; costPerKm: number }> {
   const s = fuelSortedAsc(fillups);
   const map: Record<string, { kmL: number; costPerKm: number }> = {};
@@ -103,24 +105,24 @@ export function fuelStatsByFill(fillups: FuelFillup[]): Record<string, { kmL: nu
     const prev = s[i - 1], cur = s[i];
     const km = cur.kmDriven ?? 0;
     if (km <= 0) continue;
-    const kmL = (prev.liters ?? 0) > 0 ? km / (prev.liters as number) : 0;
-    const costPerKm = prev.totalValue > 0 ? prev.totalValue / km : 0;
+    const kmL = (cur.liters ?? 0) > 0 ? km / (cur.liters as number) : 0;
+    const costPerKm = cur.totalValue > 0 ? cur.totalValue / km : 0;
     if (kmL > 0 || costPerKm > 0) map[prev.id] = { kmL, costPerKm };
   }
   return map;
 }
 
-/** Best consumption (km/L) grouped by an attribute of the PREVIOUS fill. Best first. */
+/** Best consumption (km/L) grouped by the PREVIOUS station's attribute. Best first. */
 function fuelConsumptionByKey(fillups: FuelFillup[], keyOf: (f: FuelFillup) => string): { key: string; kmL: number }[] {
   const s = fuelSortedAsc(fillups);
   const agg: Record<string, { km: number; liters: number }> = {};
   for (let i = 1; i < s.length; i++) {
     const prev = s[i - 1], cur = s[i];
-    if ((cur.kmDriven ?? 0) > 0 && (prev.liters ?? 0) > 0) {
+    if ((cur.kmDriven ?? 0) > 0 && (cur.liters ?? 0) > 0) {
       const key = keyOf(prev);
       const a = agg[key] ?? { km: 0, liters: 0 };
       a.km += cur.kmDriven as number;
-      a.liters += prev.liters as number;
+      a.liters += cur.liters as number;
       agg[key] = a;
     }
   }
@@ -140,28 +142,28 @@ export function fuelConsumptionByType(fillups: FuelFillup[]): { type: string; km
   return fuelConsumptionByKey(fillups, f => (f.fuelType && f.fuelType.trim()) || 'Sem tipo').map(x => ({ type: x.key, kmL: x.kmL }));
 }
 
-/** Average consumption (km/L): total distance / total litres over measured segments. */
+/** Average consumption (km/L): total distance / total litres over measured fills. */
 export function avgConsumption(fillups: FuelFillup[]): number | null {
   const s = fuelSortedAsc(fillups);
   let km = 0, liters = 0;
   for (let i = 1; i < s.length; i++) {
-    const prev = s[i - 1], cur = s[i];
-    if ((cur.kmDriven ?? 0) > 0 && (prev.liters ?? 0) > 0) {
+    const cur = s[i];
+    if ((cur.kmDriven ?? 0) > 0 && (cur.liters ?? 0) > 0) {
       km += cur.kmDriven as number;
-      liters += prev.liters as number;
+      liters += cur.liters as number;
     }
   }
   return liters > 0 ? km / liters : null;
 }
 
-/** Average cost per km: total paid / total distance over measured segments. */
+/** Average cost per km: total paid / total distance over measured fills. */
 export function avgCostPerKm(fillups: FuelFillup[]): number | null {
   const s = fuelSortedAsc(fillups);
   let cost = 0, km = 0;
   for (let i = 1; i < s.length; i++) {
-    const prev = s[i - 1], cur = s[i];
-    if ((cur.kmDriven ?? 0) > 0 && prev.totalValue > 0) {
-      cost += prev.totalValue;
+    const cur = s[i];
+    if ((cur.kmDriven ?? 0) > 0 && cur.totalValue > 0) {
+      cost += cur.totalValue;
       km += cur.kmDriven as number;
     }
   }
