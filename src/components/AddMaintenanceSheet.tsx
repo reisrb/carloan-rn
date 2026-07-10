@@ -39,9 +39,10 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
 
   const [status, setStatus] = useState<MaintenanceStatus>('pending');
   const [description, setDescription] = useState('');
-  const [totalCents, setTotalCents] = useState(0);
   const [itemCents, setItemCents] = useState(0);
   const [laborCents, setLaborCents] = useState(0);
+  const [totalCents, setTotalCents] = useState(0);
+  const [totalTouched, setTotalTouched] = useState(false);
   const [serviceDateText, setServiceDateText] = useState('');
   const [kmText, setKmText] = useState('');
   const [purchaseDateText, setPurchaseDateText] = useState('');
@@ -57,6 +58,7 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
       setStatus(existing.status);
       setDescription(existing.description);
       setTotalCents(Math.round(existing.totalValue * 100));
+      setTotalTouched(existing.totalValue !== existing.itemValue + existing.laborValue);
       setItemCents(Math.round(existing.itemValue * 100));
       setLaborCents(Math.round(existing.laborValue * 100));
       setServiceDateText(existing.serviceDate ? formatDate(existing.serviceDate) : '');
@@ -67,11 +69,16 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
       setExistingReceipts(existing.receiptPaths ?? []);
       setNewReceiptUris([]);
     } else {
-      setStatus('pending'); setDescription(''); setTotalCents(0); setItemCents(0); setLaborCents(0);
+      setStatus('pending'); setDescription(''); setTotalCents(0); setTotalTouched(false); setItemCents(0); setLaborCents(0);
       setServiceDateText(''); setKmText(String(currentKm)); setPurchaseDateText(''); setDueKmText(''); setDueDateText('');
       setExistingReceipts([]); setNewReceiptUris([]);
     }
   }, [visible, existing, currentKm]);
+
+  // Auto-fill total from item + labor while the user hasn't overridden it.
+  useEffect(() => {
+    if (!totalTouched) setTotalCents(itemCents + laborCents);
+  }, [itemCents, laborCents, totalTouched]);
 
   const pickReceipt = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
@@ -152,11 +159,14 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
             <>
               <Text style={styles.sectionHeader}>CUSTOS</Text>
               <View style={styles.card}>
-                <View style={styles.fieldRow}><Text style={styles.fieldLabel}>Valor total</Text><CurrencyInput cents={totalCents} onChange={setTotalCents} /></View>
-                <View style={styles.sep} />
                 <View style={styles.fieldRow}><Text style={styles.fieldLabel}>Valor do item</Text><CurrencyInput cents={itemCents} onChange={setItemCents} /></View>
                 <View style={styles.sep} />
                 <View style={styles.fieldRow}><Text style={styles.fieldLabel}>Mão de obra</Text><CurrencyInput cents={laborCents} onChange={setLaborCents} /></View>
+                <View style={styles.sep} />
+                <View style={styles.fieldRow}>
+                  <Text style={styles.fieldLabel}>Valor total</Text>
+                  <CurrencyInput cents={totalCents} onChange={(v) => { setTotalCents(v); setTotalTouched(true); }} />
+                </View>
               </View>
 
               <Text style={styles.sectionHeader}>DATAS E KM</Text>
