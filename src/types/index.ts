@@ -142,6 +142,16 @@ export function fuelConsumptionByType(fillups: FuelFillup[]): { type: string; km
   return fuelConsumptionByKey(fillups, f => (f.fuelType && f.fuelType.trim()) || 'Sem tipo').map(x => ({ type: x.key, kmL: x.kmL }));
 }
 
+/** Most recent measured fill's stats (km/L + cost per km), or null. */
+export function lastFuelStats(fillups: FuelFillup[]): { kmL: number; costPerKm: number } | null {
+  const s = [...fillups].sort((a, b) => (b.date ?? b.createdAt) - (a.date ?? a.createdAt));
+  for (const f of s) {
+    const km = f.kmDriven ?? 0, l = f.liters ?? 0;
+    if (km > 0 && l > 0) return { kmL: km / l, costPerKm: f.totalValue > 0 ? f.totalValue / km : 0 };
+  }
+  return null;
+}
+
 /** Average consumption (km/L): total distance / total litres over measured fills. */
 export function avgConsumption(fillups: FuelFillup[]): number | null {
   const s = fuelSortedAsc(fillups);

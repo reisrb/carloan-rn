@@ -10,7 +10,7 @@ import { useResponsive } from '../hooks/useResponsive';
 import { useCar } from '../contexts/CarContext';
 import { imageService } from '../services/imageService';
 import { fuelService } from '../services/fuelService';
-import { FuelFillup, avgConsumption, avgCostPerKm, tankRange } from '../types';
+import { FuelFillup, lastFuelStats } from '../types';
 import { sharingService, FinancingMember } from '../services/sharingService';
 import { adminService } from '../services/adminService';
 import { RootStackParamList, TAB_BAR_BOTTOM_OFFSET } from '../navigation';
@@ -134,16 +134,15 @@ export const CarInfoScreen: React.FC = () => {
         <View style={styles.card}>
           <Text style={styles.membersTitle}>Consumo atual</Text>
           {(() => {
-            const consumption = avgConsumption(fuel);
-            const costKm = avgCostPerKm(fuel);
-            const range = tankRange(car, fuel);
-            if (consumption == null) {
+            const last = lastFuelStats(fuel);
+            if (last == null) {
               return <Text style={styles.consumptionHint}>Registre abastecimentos com os km rodados para ver o consumo.</Text>;
             }
+            const range = car.tankLiters ? last.kmL * car.tankLiters : null;
             return (
               <>
-                <Row label="Consumo médio" value={`${consumption.toFixed(1)} km/L`} theme={theme} />
-                {costKm != null && <Row label="Custo por km" value={`${formatBRL(costKm)}/km`} theme={theme} />}
+                <Row label="Consumo" value={`${last.kmL.toFixed(1)} km/L`} theme={theme} />
+                {last.costPerKm > 0 && <Row label="Custo por km" value={`${formatBRL(last.costPerKm)}/km`} theme={theme} />}
                 {range != null ? (
                   <Row label="Autonomia (tanque cheio)" value={`${Math.round(range).toLocaleString('pt-BR')} km`} theme={theme} />
                 ) : (
