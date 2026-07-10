@@ -78,7 +78,6 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
     setSaving(true);
     try {
       const input = {
-        station: null,
         local: local.trim() || null,
         flag: flag.trim() || null,
         date: parseDate(dateText),

@@ -77,7 +77,6 @@ export interface FixedExpense {
 export interface FuelFillup {
   id: string;
   financingId: string;
-  station: string | null;
   local: string | null;
   flag: string | null;
   date: number | null;

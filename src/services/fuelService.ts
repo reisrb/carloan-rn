@@ -5,7 +5,6 @@ import { FuelFillup } from '../types';
 type FuelRow = {
   id: string;
   financing_id: string;
-  station: string | null;
   local: string | null;
   flag: string | null;
   date: number | null;
@@ -19,7 +18,6 @@ type FuelRow = {
 const toFillup = (r: FuelRow): FuelFillup => ({
   id: r.id,
   financingId: r.financing_id,
-  station: r.station,
   local: r.local,
   flag: r.flag,
   date: r.date,
@@ -31,7 +29,6 @@ const toFillup = (r: FuelRow): FuelFillup => ({
 });
 
 export interface FuelInput {
-  station: string | null;
   local: string | null;
   flag: string | null;
   date: number | null;
@@ -59,7 +56,6 @@ export const fuelService = {
       id: generateId(),
       user_id: userId,
       financing_id: financingId,
-      station: input.station,
       local: input.local,
       flag: input.flag,
       date: input.date,
@@ -74,7 +70,6 @@ export const fuelService = {
 
   async update(id: string, input: FuelInput): Promise<void> {
     const { error } = await supabase.from('fuel_fillups').update({
-      station: input.station,
       local: input.local,
       flag: input.flag,
       date: input.date,
