@@ -6,7 +6,7 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, Theme, formatBRL } from '../theme';
 import { useResponsive } from '../hooks/useResponsive';
-import { FuelFillup, fuelByMonth, fuelMonthlyAverage, fuelConsumptionByFill, fuelConsumptionByFlag, fuelConsumptionByType } from '../types';
+import { FuelFillup, fuelByMonth, fuelMonthlyAverage, fuelStatsByFill, fuelConsumptionByFlag, fuelConsumptionByType } from '../types';
 import { fuelService } from '../services/fuelService';
 import { AddFuelSheet } from '../components/AddFuelSheet';
 import { RootStackParamList, TAB_BAR_BOTTOM_OFFSET } from '../navigation';
@@ -45,7 +45,7 @@ export const FuelScreen: React.FC = () => {
     });
   };
 
-  const consMap = fuelConsumptionByFill(items);
+  const statsMap = fuelStatsByFill(items);
   const byFlag = fuelConsumptionByFlag(items);
   const byType = fuelConsumptionByType(items);
   const months = fuelByMonth(items);
@@ -90,8 +90,11 @@ export const FuelScreen: React.FC = () => {
                 <View style={styles.rowBody}>
                   <View style={styles.rowTop}>
                     <Text style={styles.rowValue}>{formatBRL(f.totalValue)}</Text>
-                    {consMap[f.id] != null && (
-                      <Text style={styles.rowConsumption}>{consMap[f.id].toFixed(1)} km/L</Text>
+                    {statsMap[f.id] && (
+                      <View style={{ alignItems: 'flex-end' }}>
+                        {statsMap[f.id].kmL > 0 && <Text style={styles.rowConsumption}>{statsMap[f.id].kmL.toFixed(1)} km/L</Text>}
+                        {statsMap[f.id].costPerKm > 0 && <Text style={styles.rowCost}>{formatBRL(statsMap[f.id].costPerKm)}/km</Text>}
+                      </View>
                     )}
                   </View>
                   <Text style={styles.rowMeta}>
@@ -193,6 +196,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   rowValue: { fontSize: 16, fontWeight: '800', color: theme.text },
   rowConsumption: { fontSize: 13, fontWeight: '700', color: theme.accentDark },
+  rowCost: { fontSize: 12, fontWeight: '600', color: theme.textSecondary },
   rowMeta: { fontSize: 13, color: theme.textSecondary },
   removeBtn: { padding: 2 },
   card: { marginHorizontal: 16, marginTop: 12, backgroundColor: theme.card, borderRadius: 16, padding: 16, ...theme.shadow },

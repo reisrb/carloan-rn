@@ -140,6 +140,24 @@ export function fuelConsumptionByType(fillups: FuelFillup[]): { type: string; km
   return fuelConsumptionByKey(fillups, f => (f.fuelType && f.fuelType.trim()) || 'Sem tipo').map(x => ({ type: x.key, kmL: x.kmL }));
 }
 
+/**
+ * Per-segment stats attributed to the PREVIOUS fill: consumption (km/L) and
+ * cost per km (money paid at prev / km driven to the next fill). Keyed by prev id.
+ */
+export function fuelStatsByFill(fillups: FuelFillup[]): Record<string, { kmL: number; costPerKm: number }> {
+  const s = fuelSortedAsc(fillups);
+  const map: Record<string, { kmL: number; costPerKm: number }> = {};
+  for (let i = 1; i < s.length; i++) {
+    const prev = s[i - 1], cur = s[i];
+    const km = cur.kmDriven ?? 0;
+    if (km <= 0) continue;
+    const kmL = (prev.liters ?? 0) > 0 ? km / (prev.liters as number) : 0;
+    const costPerKm = prev.totalValue > 0 ? prev.totalValue / km : 0;
+    if (kmL > 0 || costPerKm > 0) map[prev.id] = { kmL, costPerKm };
+  }
+  return map;
+}
+
 /** Average consumption (km/L): total distance over measured segments / total litres. */
 export function avgConsumption(fillups: FuelFillup[]): number | null {
   const s = fuelSortedAsc(fillups);
@@ -152,6 +170,20 @@ export function avgConsumption(fillups: FuelFillup[]): number | null {
     }
   }
   return liters > 0 ? km / liters : null;
+}
+
+/** Average cost per km: total paid over measured segments / total distance. */
+export function avgCostPerKm(fillups: FuelFillup[]): number | null {
+  const s = fuelSortedAsc(fillups);
+  let cost = 0, km = 0;
+  for (let i = 1; i < s.length; i++) {
+    const prev = s[i - 1], cur = s[i];
+    if ((cur.kmDriven ?? 0) > 0 && prev.totalValue > 0) {
+      cost += prev.totalValue;
+      km += cur.kmDriven as number;
+    }
+  }
+  return km > 0 ? cost / km : null;
 }
 
 /** Estimated range on a full tank (km) = avg consumption × tank size. */

@@ -5,12 +5,12 @@ import {
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
-import { useTheme, Theme } from '../theme';
+import { useTheme, Theme, formatBRL } from '../theme';
 import { useResponsive } from '../hooks/useResponsive';
 import { useCar } from '../contexts/CarContext';
 import { imageService } from '../services/imageService';
 import { fuelService } from '../services/fuelService';
-import { FuelFillup, avgConsumption, tankRange } from '../types';
+import { FuelFillup, avgConsumption, avgCostPerKm, tankRange } from '../types';
 import { sharingService, FinancingMember } from '../services/sharingService';
 import { adminService } from '../services/adminService';
 import { RootStackParamList, TAB_BAR_BOTTOM_OFFSET } from '../navigation';
@@ -135,13 +135,15 @@ export const CarInfoScreen: React.FC = () => {
           <Text style={styles.membersTitle}>Consumo atual</Text>
           {(() => {
             const consumption = avgConsumption(fuel);
+            const costKm = avgCostPerKm(fuel);
             const range = tankRange(car, fuel);
             if (consumption == null) {
-              return <Text style={styles.consumptionHint}>Registre abastecimentos com os km rodados no tanque para ver o consumo.</Text>;
+              return <Text style={styles.consumptionHint}>Registre abastecimentos com os km rodados para ver o consumo.</Text>;
             }
             return (
               <>
                 <Row label="Consumo médio" value={`${consumption.toFixed(1)} km/L`} theme={theme} />
+                {costKm != null && <Row label="Custo por km" value={`${formatBRL(costKm)}/km`} theme={theme} />}
                 {range != null ? (
                   <Row label="Autonomia (tanque cheio)" value={`${Math.round(range).toLocaleString('pt-BR')} km`} theme={theme} />
                 ) : (
