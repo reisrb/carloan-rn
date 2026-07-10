@@ -15,6 +15,7 @@ type MaintenanceRow = {
   item_purchase_date: number | null;
   due_km: number | null;
   due_date: number | null;
+  receipt_paths: string[] | null;
   created_at: number;
 };
 
@@ -31,6 +32,7 @@ const toMaintenance = (r: MaintenanceRow): Maintenance => ({
   itemPurchaseDate: r.item_purchase_date,
   dueKm: r.due_km,
   dueDate: r.due_date,
+  receiptPaths: r.receipt_paths ?? [],
   createdAt: r.created_at,
 });
 
@@ -45,6 +47,7 @@ export interface MaintenanceInput {
   itemPurchaseDate: number | null;
   dueKm: number | null;
   dueDate: number | null;
+  receiptPaths: string[];
 }
 
 const toRow = (i: MaintenanceInput) => ({
@@ -58,6 +61,7 @@ const toRow = (i: MaintenanceInput) => ({
   item_purchase_date: i.itemPurchaseDate,
   due_km: i.dueKm,
   due_date: i.dueDate,
+  receipt_paths: i.receiptPaths,
 });
 
 export const maintenanceService = {

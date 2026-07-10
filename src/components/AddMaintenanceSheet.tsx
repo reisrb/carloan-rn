@@ -1,14 +1,17 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, StyleSheet, Modal, ScrollView, TextInput, TouchableOpacity,
-  ActivityIndicator, KeyboardAvoidingView, Platform,
+  ActivityIndicator, KeyboardAvoidingView, Platform, Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import { useTheme, Theme } from '../theme';
 import { useResponsive } from '../hooks/useResponsive';
 import { Maintenance, MaintenanceStatus } from '../types';
 import { maintenanceService } from '../services/maintenanceService';
 import { financingService } from '../services/financingService';
+import { imageService } from '../services/imageService';
+import { ReceiptThumb } from './ReceiptThumb';
 import { CurrencyInput } from './CurrencyInput';
 import { formatDate, parseDate } from '../utils/date';
 import { showAlert, showConfirm } from '../utils/dialogs';
@@ -44,6 +47,8 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
   const [purchaseDateText, setPurchaseDateText] = useState('');
   const [dueKmText, setDueKmText] = useState('');
   const [dueDateText, setDueDateText] = useState('');
+  const [existingReceipts, setExistingReceipts] = useState<string[]>([]);
+  const [newReceiptUris, setNewReceiptUris] = useState<string[]>([]);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -59,11 +64,19 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
       setPurchaseDateText(existing.itemPurchaseDate ? formatDate(existing.itemPurchaseDate) : '');
       setDueKmText(existing.dueKm != null ? String(existing.dueKm) : '');
       setDueDateText(existing.dueDate ? formatDate(existing.dueDate) : '');
+      setExistingReceipts(existing.receiptPaths ?? []);
+      setNewReceiptUris([]);
     } else {
       setStatus('pending'); setDescription(''); setTotalCents(0); setItemCents(0); setLaborCents(0);
       setServiceDateText(''); setKmText(String(currentKm)); setPurchaseDateText(''); setDueKmText(''); setDueDateText('');
+      setExistingReceipts([]); setNewReceiptUris([]);
     }
   }, [visible, existing, currentKm]);
+
+  const pickReceipt = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({ mediaTypes: ['images'], quality: 0.7 });
+    if (!result.canceled && result.assets[0]) setNewReceiptUris(cur => [...cur, result.assets[0].uri]);
+  };
 
   const save = async () => {
     const desc = description.trim();
@@ -71,21 +84,28 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
 
     const kmAtService = status === 'done' ? (parseInt(kmText.replace(/\D/g, ''), 10) || null) : null;
 
-    const input = {
-      status,
-      description: desc,
-      totalValue: status === 'done' ? totalCents / 100 : 0,
-      itemValue: status === 'done' ? itemCents / 100 : 0,
-      laborValue: status === 'done' ? laborCents / 100 : 0,
-      serviceDate: status === 'done' ? parseDate(serviceDateText) : null,
-      kmAtService,
-      itemPurchaseDate: status === 'done' ? parseDate(purchaseDateText) : null,
-      dueKm: status === 'pending' ? (parseInt(dueKmText.replace(/\D/g, ''), 10) || null) : null,
-      dueDate: status === 'pending' ? parseDate(dueDateText) : null,
-    };
-
     setSaving(true);
     try {
+      const uploaded: string[] = [];
+      for (const uri of newReceiptUris) {
+        try { uploaded.push(await imageService.uploadReceipt(uri)); } catch { /* best-effort */ }
+      }
+      const receiptPaths = status === 'done' ? [...existingReceipts, ...uploaded] : [];
+
+      const input = {
+        status,
+        description: desc,
+        totalValue: status === 'done' ? totalCents / 100 : 0,
+        itemValue: status === 'done' ? itemCents / 100 : 0,
+        laborValue: status === 'done' ? laborCents / 100 : 0,
+        serviceDate: status === 'done' ? parseDate(serviceDateText) : null,
+        kmAtService,
+        itemPurchaseDate: status === 'done' ? parseDate(purchaseDateText) : null,
+        dueKm: status === 'pending' ? (parseInt(dueKmText.replace(/\D/g, ''), 10) || null) : null,
+        dueDate: status === 'pending' ? parseDate(dueDateText) : null,
+        receiptPaths,
+      };
+
       if (existing) await maintenanceService.update(existing.id, input);
       else await maintenanceService.create(financingId, input);
 
@@ -156,6 +176,30 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
                   <TextInput style={styles.inlineInput} value={purchaseDateText} onChangeText={t => setPurchaseDateText(dateMask(t))} keyboardType="numeric" placeholder="dd/mm/aaaa" placeholderTextColor={theme.textTertiary} maxLength={10} />
                 </View>
               </View>
+
+              <Text style={styles.sectionHeader}>COMPROVANTE</Text>
+              <View style={styles.receipts}>
+                {existingReceipts.map(path => (
+                  <View key={path} style={styles.receiptItem}>
+                    <ReceiptThumb path={path} size={72} />
+                    <TouchableOpacity style={styles.receiptRemove} onPress={() => setExistingReceipts(cur => cur.filter(p => p !== path))}>
+                      <Ionicons name="close-circle" size={20} color={theme.spend} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                {newReceiptUris.map((uri, idx) => (
+                  <View key={`new-${idx}`} style={styles.receiptItem}>
+                    <Image source={{ uri }} style={styles.receiptThumb} />
+                    <TouchableOpacity style={styles.receiptRemove} onPress={() => setNewReceiptUris(cur => cur.filter((_, i) => i !== idx))}>
+                      <Ionicons name="close-circle" size={20} color={theme.spend} />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+                <TouchableOpacity style={styles.receiptAdd} onPress={pickReceipt} activeOpacity={0.7}>
+                  <Ionicons name="camera-outline" size={22} color={theme.accentDark} />
+                  <Text style={styles.receiptAddText}>Anexar</Text>
+                </TouchableOpacity>
+              </View>
             </>
           ) : (
             <>
@@ -203,6 +247,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   fieldRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, gap: 12 },
   fieldLabel: { fontSize: 14, color: theme.text, fontWeight: '500' },
   inlineInput: { fontSize: 16, color: theme.text, paddingVertical: 14, minWidth: 120, textAlign: 'right' },
+  receipts: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  receiptItem: { position: 'relative' },
+  receiptThumb: { width: 72, height: 72, borderRadius: 12, backgroundColor: theme.separator },
+  receiptRemove: { position: 'absolute', top: -6, right: -6, backgroundColor: theme.card, borderRadius: 10 },
+  receiptAdd: { width: 72, height: 72, borderRadius: 12, borderWidth: 1.5, borderColor: theme.accentBorder, borderStyle: 'dashed', backgroundColor: theme.accentSubtle, alignItems: 'center', justifyContent: 'center', gap: 2 },
+  receiptAddText: { fontSize: 11, fontWeight: '600', color: theme.accentDark },
   saveBtn: { backgroundColor: theme.accent, borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginTop: 8, ...theme.shadowMd },
   saveBtnText: { fontSize: 16, fontWeight: '800', color: '#000' },
 });
