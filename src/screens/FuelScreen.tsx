@@ -115,21 +115,6 @@ export const FuelScreen: React.FC = () => {
                 <Text style={styles.heroValue}>{formatBRL(average)}</Text>
                 <Text style={styles.heroSub}>{months.length} {months.length === 1 ? 'mês' : 'meses'} · total {formatBRL(grandTotal)}</Text>
               </View>
-              {months.length === 0 ? (
-                <Text style={styles.emptySub}>Sem dados ainda.</Text>
-              ) : (
-                <View style={styles.card}>
-                  {months.map((m, i) => (
-                    <View key={m.key} style={[styles.monthRow, i > 0 && styles.monthRowSep]}>
-                      <Text style={styles.monthLabel}>{m.label}</Text>
-                      <View style={styles.barTrack}>
-                        <View style={[styles.barFill, { width: `${Math.max(6, (m.total / maxMonth) * 100)}%` }]} />
-                      </View>
-                      <Text style={styles.monthValue}>{formatBRL(m.total)}</Text>
-                    </View>
-                  ))}
-                </View>
-              )}
 
               {byType.length > 0 && (
                 <>
@@ -159,6 +144,23 @@ export const FuelScreen: React.FC = () => {
                     ))}
                   </View>
                 </>
+              )}
+
+              <Text style={styles.flagTitle}>Gasto mensal</Text>
+              {months.length === 0 ? (
+                <Text style={styles.emptySub}>Sem dados ainda.</Text>
+              ) : (
+                <View style={styles.card}>
+                  {months.map((m, i) => (
+                    <View key={m.key} style={[styles.monthRow, i > 0 && styles.monthRowSep]}>
+                      <Text style={styles.monthLabel}>{m.label}</Text>
+                      <View style={styles.barTrack}>
+                        <View style={[styles.barFill, { width: `${Math.max(6, (m.total / maxMonth) * 100)}%` }]} />
+                      </View>
+                      <Text style={styles.monthValue}>{formatBRL(m.total)}</Text>
+                    </View>
+                  ))}
+                </View>
               )}
             </>
           )}
