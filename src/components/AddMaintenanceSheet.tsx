@@ -71,7 +71,7 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
       setServiceDateText(existing.serviceDate ? formatDate(existing.serviceDate) : '');
       setKmText(groupKm(String(existing.kmAtService != null ? existing.kmAtService : currentKm)));
       setPurchaseDateText(existing.itemPurchaseDate ? formatDate(existing.itemPurchaseDate) : '');
-      setDueKmText(existing.dueKm != null ? String(existing.dueKm) : '');
+      setDueKmText(existing.dueKm != null ? groupKm(String(existing.dueKm)) : '');
       setDueDateText(existing.dueDate ? formatDate(existing.dueDate) : '');
       setExistingReceipts(existing.receiptPaths ?? []);
       setNewReceiptUris([]);
@@ -117,6 +117,9 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
         .filter(it => it.name.trim() || it.cents > 0)
         .map(it => ({ name: it.name.trim() || 'Item', value: it.cents / 100 }));
 
+      const dueKm = parseInt(dueKmText.replace(/\D/g, ''), 10) || null;
+      const dueDate = parseDate(dueDateText);
+
       const input = {
         status,
         description: desc,
@@ -127,13 +130,32 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
         serviceDate: status === 'done' ? parseDate(serviceDateText) : null,
         kmAtService,
         itemPurchaseDate: status === 'done' ? parseDate(purchaseDateText) : null,
-        dueKm: status === 'pending' ? (parseInt(dueKmText.replace(/\D/g, ''), 10) || null) : null,
-        dueDate: status === 'pending' ? parseDate(dueDateText) : null,
+        // On a done record the validade lives on the spawned pending card, not here.
+        dueKm: status === 'pending' ? dueKm : null,
+        dueDate: status === 'pending' ? dueDate : null,
         receiptPaths,
       };
 
       if (existing) await maintenanceService.update(existing.id, input);
       else await maintenanceService.create(financingId, input);
+
+      // New done maintenance with a validade → spawn a pending "next change" card.
+      if (!existing && status === 'done' && (dueKm != null || dueDate != null)) {
+        await maintenanceService.create(financingId, {
+          status: 'pending',
+          description: desc,
+          items: [],
+          totalValue: 0,
+          itemValue: 0,
+          laborValue: 0,
+          serviceDate: null,
+          kmAtService: null,
+          itemPurchaseDate: null,
+          dueKm,
+          dueDate,
+          receiptPaths: [],
+        });
+      }
 
       if (kmAtService != null && kmAtService > currentKm) {
         showConfirm(
@@ -245,6 +267,19 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
                 </View>
               </View>
 
+              <Text style={styles.sectionHeader}>PRÓXIMA TROCA (opcional)</Text>
+              <View style={styles.card}>
+                <View style={styles.fieldRow}>
+                  <Text style={styles.fieldLabel}>Validade (km)</Text>
+                  <TextInput style={styles.inlineInput} value={dueKmText} onChangeText={t => setDueKmText(groupKm(t))} keyboardType="numeric" placeholder="—" placeholderTextColor={theme.textTertiary} />
+                </View>
+                <View style={styles.sep} />
+                <View style={styles.fieldRow}>
+                  <Text style={styles.fieldLabel}>Validade (data)</Text>
+                  <TextInput style={styles.inlineInput} value={dueDateText} onChangeText={t => setDueDateText(dateMask(t))} keyboardType="numeric" placeholder="dd/mm/aaaa" placeholderTextColor={theme.textTertiary} maxLength={10} />
+                </View>
+              </View>
+
               <Text style={styles.sectionHeader}>COMPROVANTE</Text>
               <View style={styles.receipts}>
                 {existingReceipts.map(path => (
@@ -275,7 +310,7 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
               <View style={styles.card}>
                 <View style={styles.fieldRow}>
                   <Text style={styles.fieldLabel}>Vence em (km)</Text>
-                  <TextInput style={styles.inlineInput} value={dueKmText} onChangeText={t => setDueKmText(t.replace(/\D/g, '').slice(0, 7))} keyboardType="numeric" placeholder="opcional" placeholderTextColor={theme.textTertiary} />
+                  <TextInput style={styles.inlineInput} value={dueKmText} onChangeText={t => setDueKmText(groupKm(t))} keyboardType="numeric" placeholder="opcional" placeholderTextColor={theme.textTertiary} />
                 </View>
                 <View style={styles.sep} />
                 <View style={styles.fieldRow}>
