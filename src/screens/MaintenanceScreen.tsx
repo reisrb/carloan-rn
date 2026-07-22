@@ -120,7 +120,14 @@ export const MaintenanceScreen: React.FC = () => {
     return <View style={[styles.container, styles.center]}><ActivityIndicator size="large" color={theme.accentDark} /></View>;
   }
 
-  const pending = items.filter(m => m.status === 'pending');
+  const pending = items
+    .filter(m => m.status === 'pending')
+    .sort((a, b) => {
+      const ad = a.dueDate ?? Infinity, bd = b.dueDate ?? Infinity;
+      if (ad !== bd) return ad - bd;            // soonest due date first
+      const ak = a.dueKm ?? Infinity, bk = b.dueKm ?? Infinity;
+      return ak - bk;                           // then by due km; no-due last
+    });
   const done = items.filter(m => m.status === 'done');
 
   return (
