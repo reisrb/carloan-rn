@@ -129,7 +129,7 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
         laborValue: status === 'done' ? laborCents / 100 : 0,
         serviceDate: status === 'done' ? parseDate(serviceDateText) : null,
         kmAtService,
-        itemPurchaseDate: status === 'done' ? parseDate(purchaseDateText) : null,
+        itemPurchaseDate: null,
         // Pending: km is the absolute target. Done: keep the entered "rodar mais" increment.
         dueKm: enteredKm,
         dueDate,
@@ -263,11 +263,6 @@ export const AddMaintenanceSheet: React.FC<Props> = ({ visible, financingId, cur
                 <View style={styles.fieldRow}>
                   <Text style={styles.fieldLabel}>Km no serviço</Text>
                   <TextInput style={styles.inlineInput} value={kmText} onChangeText={t => setKmText(groupKm(t))} keyboardType="numeric" placeholder={groupKm(String(currentKm))} placeholderTextColor={theme.textTertiary} />
-                </View>
-                <View style={styles.sep} />
-                <View style={styles.fieldRow}>
-                  <Text style={styles.fieldLabel}>Data da compra</Text>
-                  <TextInput style={styles.inlineInput} value={purchaseDateText} onChangeText={t => setPurchaseDateText(dateMask(t))} keyboardType="numeric" placeholder="dd/mm/aaaa" placeholderTextColor={theme.textTertiary} maxLength={10} />
                 </View>
               </View>
 

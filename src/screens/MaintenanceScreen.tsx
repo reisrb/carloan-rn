@@ -128,7 +128,9 @@ export const MaintenanceScreen: React.FC = () => {
       const ak = a.dueKm ?? Infinity, bk = b.dueKm ?? Infinity;
       return ak - bk;                           // then by due km; no-due last
     });
-  const done = items.filter(m => m.status === 'done');
+  const done = items
+    .filter(m => m.status === 'done')
+    .sort((a, b) => (b.serviceDate ?? b.createdAt) - (a.serviceDate ?? a.createdAt)); // newest service first
 
   return (
     <View style={styles.container}>
@@ -196,7 +198,6 @@ export const MaintenanceScreen: React.FC = () => {
               {m.laborValue > 0 && <Detail label="Mão de obra" value={formatBRL(m.laborValue)} theme={theme} />}
               {m.serviceDate != null && <Detail label="Data" value={formatDate(m.serviceDate)} theme={theme} />}
               {m.kmAtService != null && <Detail label="Km" value={`${m.kmAtService.toLocaleString('pt-BR')} km`} theme={theme} />}
-              {m.itemPurchaseDate != null && <Detail label="Compra do item" value={formatDate(m.itemPurchaseDate)} theme={theme} />}
               {m.dueKm != null && <Detail label="Rodar mais" value={`${m.dueKm.toLocaleString('pt-BR')} km`} theme={theme} />}
               {m.dueDate != null && <Detail label="Validade" value={formatDate(m.dueDate)} theme={theme} />}
             </View>
