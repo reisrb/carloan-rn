@@ -41,7 +41,12 @@ export const ExpensesScreen: React.FC = () => {
   }
 
   const installments = car.installments;
-  const monthInstallmentAmount = installments.filter(i => !i.payment).find(isCurrentMonth)?.amount ?? 0;
+  // Recurring parcela value — this month's installment (paid or not), else next unpaid, else first.
+  const monthInstallmentAmount =
+    installments.find(isCurrentMonth)?.amount
+    ?? installments.find(i => !i.payment)?.amount
+    ?? installments[0]?.amount
+    ?? 0;
   const fixedSum = fixedExpenses.reduce((s, e) => s + e.value, 0);
   const otherMonthly = car.monthlyCost;
   const fuelAvg = fuelMonthlyAverage(fuel);
