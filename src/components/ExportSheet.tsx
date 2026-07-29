@@ -6,6 +6,9 @@ import { exportHtmlAsPdf } from '../utils/pdf';
 import { sendReportByEmail } from '../services/emailService';
 import { showAlert } from '../utils/dialogs';
 
+// Flip to true once the Resend domain (carloan.com) is DNS-verified.
+const EMAIL_ENABLED = false;
+
 interface Props {
   visible: boolean;
   html: string;
@@ -47,12 +50,14 @@ export const ExportSheet: React.FC<Props> = ({ visible, html, title, onClose }) 
             <Text style={styles.optText}>Baixar PDF</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.opt} onPress={email} disabled={sending}>
-            {sending
-              ? <ActivityIndicator size="small" color={theme.accentDark} />
-              : <Ionicons name="mail-outline" size={22} color={theme.accentDark} />}
-            <Text style={styles.optText}>Enviar por e-mail</Text>
-          </TouchableOpacity>
+          {EMAIL_ENABLED && (
+            <TouchableOpacity style={styles.opt} onPress={email} disabled={sending}>
+              {sending
+                ? <ActivityIndicator size="small" color={theme.accentDark} />
+                : <Ionicons name="mail-outline" size={22} color={theme.accentDark} />}
+              <Text style={styles.optText}>Enviar por e-mail</Text>
+            </TouchableOpacity>
+          )}
 
           <TouchableOpacity style={styles.cancel} onPress={onClose} disabled={sending}>
             <Text style={styles.cancelText}>Cancelar</Text>
