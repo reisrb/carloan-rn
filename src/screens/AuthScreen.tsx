@@ -59,20 +59,19 @@ export const AuthScreen: React.FC = () => {
     try {
       if (mode === 'register') {
         await authService.signUp(u, e, p);
-        unsubRef.current?.();
-        unsubRef.current = null;
-        setScreen('login');
-        setMode('login');
-        setEmail('');
-        setErrorMsg(null);
-        Alert.alert('Conta criada!', 'Sua conta foi criada e aguarda aprovação de um administrador. Você será notificado quando sua conta for aprovada. Faça login para continuar.');
+        // Auto-login: first 50 users are approved instantly; others hit PENDING.
+        await authService.signIn(u, p);
       } else {
         await authService.signIn(u, p);
       }
     } catch (err: any) {
       const msg: string = err.message ?? 'Erro desconhecido';
-      setErrorMsg(msg);
-      if (msg.includes('aguardando aprovação')) startPendingWatch(u);
+      if (msg === 'PENDING') {
+        setScreen('pending');
+        startPendingWatch(u);
+      } else {
+        setErrorMsg(msg);
+      }
     } finally {
       setLoading(false);
     }
@@ -85,7 +84,7 @@ export const AuthScreen: React.FC = () => {
           <ActivityIndicator size="large" color={theme.accentDark} style={{ marginBottom: 8 }} />
           <Text style={styles.successTitle}>Aguardando aprovação</Text>
           <Text style={styles.successText}>
-            Sua conta foi criada e está aguardando aprovação de um administrador.
+            Estamos aumentando o limite da nossa base. Aguarde a aprovação de um administrador.
           </Text>
           <Text style={styles.successSub}>
             Você será notificado automaticamente quando sua conta for aprovada.
