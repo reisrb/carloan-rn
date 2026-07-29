@@ -1,4 +1,4 @@
--- Auto-approve the first 50 sign-ups (status = active); everyone after stays
+-- Auto-approve the first 15 sign-ups (status = active); everyone after stays
 -- pending for admin approval. Run in the Supabase SQL Editor.
 -- Note: for instant login, keep "Enable email confirmations" OFF in Supabase Auth.
 
@@ -17,7 +17,7 @@ begin
     new.raw_user_meta_data ->> 'username',
     new.email,
     'user',
-    case when cnt < 50 then 'active' else 'pending' end
+    case when cnt < 15 then 'active' else 'pending' end
   );
   return new;
 end;
