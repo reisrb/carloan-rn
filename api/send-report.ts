@@ -1,22 +1,18 @@
 // Vercel Serverless Function: POST /api/send-report
-// Monolith backend — deployed alongside the static web app on Vercel.
-// Emails an HTML report to the logged-in user via Resend.
+// Backend that emails an HTML report to the logged-in user via SMTP (nodemailer).
 //
-// Vercel env vars required (Project → Settings → Environment Variables):
-//   RESEND_API_KEY      — Resend API key (server-side secret)
-//   SUPABASE_URL        — e.g. https://<ref>.supabase.co
-//   SUPABASE_ANON_KEY   — anon key (used to validate the caller's JWT)
-//
-// Until carloan.com is DNS-verified on Resend, keep FROM as onboarding@resend.dev
-// (only delivers to the Resend account owner). After verifying, switch to noreply@carloan.com.
-
-const FROM = 'CarLoan <onboarding@resend.dev>';
+// Vercel env vars (Project → Settings → Environment Variables):
+//   SMTP_HOST         — e.g. smtp-mail.outlook.com / smtp.gmail.com
+//   SMTP_PORT         — 587 (STARTTLS) or 465 (SSL). Default 587.
+//   SMTP_USER         — SMTP username / full email
+//   SMTP_PASS         — SMTP password or app-password
+//   SMTP_FROM         — optional "Nome <email>"; defaults to SMTP_USER
+//   SUPABASE_URL      — https://<ref>.supabase.co
+//   SUPABASE_ANON_KEY — anon key (used to validate the caller's JWT)
+import nodemailer from 'nodemailer';
 
 export default async function handler(req: any, res: any) {
-  if (req.method !== 'POST') {
-    res.status(405).json({ error: 'Method not allowed' });
-    return;
-  }
+  if (req.method !== 'POST') { res.status(405).json({ error: 'Method not allowed' }); return; }
   try {
     const jwt = String(req.headers.authorization ?? '').replace('Bearer ', '');
     if (!jwt) { res.status(401).json({ error: 'Não autenticado' }); return; }
@@ -33,15 +29,23 @@ export default async function handler(req: any, res: any) {
     const { html, subject } = req.body ?? {};
     if (!html) { res.status(400).json({ error: 'Relatório vazio' }); return; }
 
-    const send = await fetch('https://api.resend.com/emails', {
-      method: 'POST',
-      headers: { Authorization: `Bearer ${process.env.RESEND_API_KEY}`, 'Content-Type': 'application/json' },
-      body: JSON.stringify({ from: FROM, to: [email], subject: subject ?? 'Seu relatório — CarLoan', html }),
+    const port = Number(process.env.SMTP_PORT ?? 587);
+    const transporter = nodemailer.createTransport({
+      host: process.env.SMTP_HOST,
+      port,
+      secure: port === 465,
+      auth: { user: process.env.SMTP_USER, pass: process.env.SMTP_PASS },
     });
-    if (!send.ok) { res.status(502).json({ error: `Resend: ${await send.text()}` }); return; }
+
+    await transporter.sendMail({
+      from: process.env.SMTP_FROM || process.env.SMTP_USER,
+      to: email,
+      subject: subject ?? 'Seu relatório — CarLoan',
+      html,
+    });
 
     res.status(200).json({ ok: true, to: email });
-  } catch (e) {
-    res.status(500).json({ error: String(e) });
+  } catch (e: any) {
+    res.status(502).json({ error: e?.message ? `SMTP: ${e.message}` : String(e) });
   }
 }

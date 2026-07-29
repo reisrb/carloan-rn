@@ -83,20 +83,17 @@ Each car opens into a **hub** with a floating bottom menu:
 6. `npm run web` to run locally; `npm run build:web` to generate `dist/`.
 7. First admin: `node scripts/setup-admin.js`, then run the printed SQL on Supabase.
 
-## E-mail (Resend)
+## E-mail (SMTP / nodemailer)
 
-Reports can be emailed to the logged-in user. Two interchangeable backends exist
-(the app is a static export, so email needs a serverless function — never a
-client-only send):
+Reports are emailed to the logged-in user by a **Vercel Serverless Function**
+(`api/send-report.ts`) deployed with the web app (monolith — front + back in one
+project). It validates the caller's Supabase JWT, then sends via SMTP using
+**nodemailer** (no third-party email API). The web app POSTs to `/api/send-report`
+(same origin).
 
-**A) Vercel Serverless Function (monolith)** — `api/send-report.ts` deploys with
-the web app on Vercel. Set env vars in Vercel → Settings → Environment Variables:
-`RESEND_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`. The web app calls
-`/api/send-report` (same origin). This is the recommended path — one project,
-front + back together.
-
-**B) Supabase Edge Function** — `supabase/functions/send-report/index.ts` (used by
-native builds as a fallback).
+Set env vars in Vercel → Settings → Environment Variables:
+`SMTP_HOST`, `SMTP_PORT` (587 or 465), `SMTP_USER`, `SMTP_PASS`, `SMTP_FROM`
+(optional), `SUPABASE_URL`, `SUPABASE_ANON_KEY`. Secrets never live in the repo.
 
 1. Set the secret (never in the repo):
    ```
