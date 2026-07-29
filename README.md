@@ -28,10 +28,23 @@ Each car opens into a **hub** with a floating bottom menu:
 
 ## Tech stack
 
-- **Expo** (SDK 54) + **React 19** + **React Native 0.81**, running on web via `react-native-web`.
+- **Expo** (SDK 54) + **React 19** + **React Native 0.81**, running on web via `react-native-web`. It's a **pure client app** (no custom backend server).
 - **@react-navigation** — a root native-stack holding `HomeTabs` (Carros / Perfil) and a per-car `CarHub` tab navigator, both using a shared floating tab bar.
-- **Supabase** (`@supabase/supabase-js`) for Postgres + Auth + Storage; AsyncStorage for the session, image cache, and theme prefs.
-- UI is plain `StyleSheet` + `@expo/vector-icons` (Ionicons). No component library.
+- **Supabase** (`@supabase/supabase-js`) — Postgres + Auth + Storage + **Edge Functions** (Deno). AsyncStorage holds the session, image cache, and theme prefs.
+- **Resend** — transactional email, called from a Supabase Edge Function (`send-report`).
+- **Vercel** — hosting of the exported web PWA.
+- UI is plain `StyleSheet` + `@expo/vector-icons`. No component library. PDF export uses the browser print engine (web) / `expo-print` (native); images are downscaled in-browser before upload.
+
+## Serviços e sites usados
+
+| Serviço | Uso | Onde |
+|---|---|---|
+| **Supabase** | Postgres, Auth, Storage (bucket `images`), Edge Functions | https://supabase.com — projeto `upwuvfjjplvrkopeykum` |
+| **Resend** | Envio de e-mail (relatórios) | https://resend.com — domínio `@carloan.com` |
+| **Vercel** | Deploy do PWA web | https://vercel.com |
+| **Expo / EAS** | Runtime React Native + export web | https://expo.dev |
+
+> Segredos (ex: `RESEND_API_KEY`, service role) **nunca** ficam no repositório — vivem como secrets no Supabase / variáveis de ambiente na Vercel.
 
 ## Architecture
 
@@ -56,10 +69,38 @@ Each car opens into a **hub** with a floating bottom menu:
    - `supabase/migrations/003_car_hub.sql` — car fields + maintenances/accessories/wishlist
    - `supabase/migrations/004_fixed_expenses.sql` — monthly fixed expenses
    - `supabase/migrations/005_maintenance_receipts.sql` — receipt photos on maintenance
+   - `supabase/migrations/006_maintenance_items.sql` — maintenance line items
+   - `supabase/migrations/007_fuel.sql` — fuel fill-ups
+   - `supabase/migrations/008_fuel_consumption.sql` — station/km driven + tank size
+   - `supabase/migrations/009_km_driven_decimal.sql` — fractional km driven
+   - `supabase/migrations/010_fuel_local_flag.sql` — fuel location + brand
+   - `supabase/migrations/011_drop_fuel_station.sql` — drop old station column
+   - `supabase/migrations/012_fuel_type.sql` — fuel type
+   - `supabase/migrations/013_auto_approve_first_50.sql` — auto-approve first N signups
 3. Copy `.env.example` to `.env` and fill `EXPO_PUBLIC_SUPABASE_URL` and `EXPO_PUBLIC_SUPABASE_ANON_KEY`.
-4. `npm install`
-5. `npm run web` to run locally; `npm run build:web` to generate `dist/`.
-6. First admin: `node scripts/setup-admin.js`, then run the printed SQL on Supabase.
+4. In Supabase Auth → Settings, keep **email confirmations OFF** (instant login for approved users).
+5. `npm install`
+6. `npm run web` to run locally; `npm run build:web` to generate `dist/`.
+7. First admin: `node scripts/setup-admin.js`, then run the printed SQL on Supabase.
+
+## E-mail (Resend + Edge Function)
+
+Reports can be emailed to the logged-in user via the `send-report` Edge Function.
+
+1. Set the secret (never in the repo):
+   ```
+   supabase secrets set RESEND_API_KEY=<sua-key>
+   ```
+   (ou Supabase Dashboard → Edge Functions → Secrets)
+2. Deploy the function:
+   ```
+   supabase functions deploy send-report
+   ```
+3. The function sends from `noreply@carloan.com` (verified domain on Resend) to the caller's account email.
+
+## Signup / limite de usuários
+
+Migration `013` auto-approves the first N signups (`status = active`, instant login); after that new signups stay `pending` and see a waiting screen until an admin approves. The limit is the `cnt < N` check inside `handle_new_user()`.
 
 ## Deploy
 

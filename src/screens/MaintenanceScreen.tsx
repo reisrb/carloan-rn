@@ -2,7 +2,6 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
-import { exportHtmlAsPdf } from '../utils/pdf';
 import { useTheme, Theme, formatBRL } from '../theme';
 import { useResponsive } from '../hooks/useResponsive';
 import { useCar } from '../contexts/CarContext';
@@ -10,6 +9,7 @@ import { Maintenance } from '../types';
 import { maintenanceService } from '../services/maintenanceService';
 import { AddMaintenanceSheet } from '../components/AddMaintenanceSheet';
 import { ReceiptThumb } from '../components/ReceiptThumb';
+import { ExportSheet } from '../components/ExportSheet';
 import { TAB_BAR_BOTTOM_OFFSET } from '../navigation';
 import { formatDate, daysUntil } from '../utils/date';
 import { showConfirm, showAlert } from '../utils/dialogs';
@@ -26,6 +26,7 @@ export const MaintenanceScreen: React.FC = () => {
   const [showSheet, setShowSheet] = useState(false);
   const [editing, setEditing] = useState<Maintenance | null>(null);
   const [forceDone, setForceDone] = useState(false);
+  const [exportHtml, setExportHtml] = useState<string | null>(null);
 
   const currentKm = car?.currentKm ?? 0;
 
@@ -107,13 +108,8 @@ export const MaintenanceScreen: React.FC = () => {
     </body></html>`;
   };
 
-  const exportPdf = async () => {
-    try {
-      const html = buildHtml(items.filter(m => m.status === 'pending'), items.filter(m => m.status === 'done'));
-      await exportHtmlAsPdf(html, `Manutenções — ${car?.carName ?? 'Carro'}`);
-    } catch (e: any) {
-      showAlert('Erro', e?.message ?? 'Não foi possível exportar');
-    }
+  const exportPdf = () => {
+    setExportHtml(buildHtml(items.filter(m => m.status === 'pending'), items.filter(m => m.status === 'done')));
   };
 
   if (loading) {
@@ -230,6 +226,13 @@ export const MaintenanceScreen: React.FC = () => {
         forceDone={forceDone}
         onClose={() => setShowSheet(false)}
         onSaved={() => { setShowSheet(false); load(); }}
+      />
+
+      <ExportSheet
+        visible={exportHtml != null}
+        html={exportHtml ?? ''}
+        title={`Manutenções — ${car?.carName ?? 'Carro'}`}
+        onClose={() => setExportHtml(null)}
       />
     </View>
   );

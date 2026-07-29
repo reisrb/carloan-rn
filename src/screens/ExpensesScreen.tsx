@@ -11,8 +11,7 @@ import { accessoryService } from '../services/accessoryService';
 import { maintenanceService } from '../services/maintenanceService';
 import { fixedExpenseService } from '../services/fixedExpenseService';
 import { fuelService } from '../services/fuelService';
-import { exportHtmlAsPdf } from '../utils/pdf';
-import { showAlert } from '../utils/dialogs';
+import { ExportSheet } from '../components/ExportSheet';
 import { RootStackParamList, TAB_BAR_BOTTOM_OFFSET } from '../navigation';
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -27,6 +26,7 @@ export const ExpensesScreen: React.FC = () => {
   const [maintenances, setMaintenances] = useState<Maintenance[]>([]);
   const [fixedExpenses, setFixedExpenses] = useState<FixedExpense[]>([]);
   const [fuel, setFuel] = useState<FuelFillup[]>([]);
+  const [exportHtml, setExportHtml] = useState<string | null>(null);
 
   useFocusEffect(useCallback(() => {
     reload().catch(() => null);
@@ -58,8 +58,7 @@ export const ExpensesScreen: React.FC = () => {
   const fuelTotal = fuel.reduce((s, f) => s + f.totalValue, 0);
   const accumulated = car.downPayment + paidInstallments + accTotal + maintTotal + fuelTotal;
 
-  const exportPdf = async () => {
-    try {
+  const exportPdf = () => {
       const row = (l: string, v: number) => `<div class="row"><span>${l}</span><span class="v">${formatBRL(v)}</span></div>`;
       const html = `<!DOCTYPE html><html><head><meta charset="utf-8"/><style>
         body{font-family:Arial,sans-serif;margin:24px;color:#000;}
@@ -83,10 +82,7 @@ export const ExpensesScreen: React.FC = () => {
         ${row('Gasolina', fuelTotal)}
         <div class="row ttl"><span>Total acumulado</span><span>${formatBRL(accumulated)}</span></div>
       </body></html>`;
-      await exportHtmlAsPdf(html, `Gastos — ${car.carName}`);
-    } catch (e: any) {
-      showAlert('Erro', e?.message ?? 'Não foi possível exportar');
-    }
+      setExportHtml(html);
   };
 
   return (
@@ -135,6 +131,13 @@ export const ExpensesScreen: React.FC = () => {
       >
         <MaterialCommunityIcons name="gas-station" size={26} color="#000" />
       </TouchableOpacity>
+
+      <ExportSheet
+        visible={exportHtml != null}
+        html={exportHtml ?? ''}
+        title={`Gastos — ${car.carName}`}
+        onClose={() => setExportHtml(null)}
+      />
     </View>
   );
 };
