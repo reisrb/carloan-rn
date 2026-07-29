@@ -42,15 +42,22 @@ export const authService = {
     const trimmed = identifier.toLowerCase().trim();
     const isEmail = trimmed.includes('@');
 
-    const { data: profile, error: lookupError } = await supabase
+    const lookup = () => supabase
       .from('profiles')
       .select('email, status')
       .eq(isEmail ? 'email' : 'username', trimmed)
       .maybeSingle();
 
+    let { data: profile, error: lookupError } = await lookup();
+    // Right after sign-up the trigger may not have committed the profile yet.
+    if (!lookupError && !profile) {
+      await new Promise(r => setTimeout(r, 600));
+      ({ data: profile, error: lookupError } = await lookup());
+    }
+
     if (lookupError) throw new Error(lookupError.message);
     if (!profile) throw new Error(isEmail ? 'Email não encontrado' : 'Username não encontrado');
-    if (profile.status === 'pending') throw new Error('Conta aguardando aprovação do admin');
+    if (profile.status === 'pending') { await supabase.auth.signOut(); throw new Error('PENDING'); }
 
     const { error } = await supabase.auth.signInWithPassword({
       email: profile.email,
