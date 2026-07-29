@@ -11,7 +11,9 @@ const CORS = {
   'Access-Control-Allow-Methods': 'POST, OPTIONS',
 };
 
-const FROM = 'CarLoan <noreply@carloan.com>';
+// Until carloan.com is verified on Resend, use the shared test sender.
+// onboarding@resend.dev only delivers to the Resend account owner's email.
+const FROM = 'CarLoan <onboarding@resend.dev>';
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: CORS });
