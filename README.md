@@ -83,9 +83,20 @@ Each car opens into a **hub** with a floating bottom menu:
 6. `npm run web` to run locally; `npm run build:web` to generate `dist/`.
 7. First admin: `node scripts/setup-admin.js`, then run the printed SQL on Supabase.
 
-## E-mail (Resend + Edge Function)
+## E-mail (Resend)
 
-Reports can be emailed to the logged-in user via the `send-report` Edge Function.
+Reports can be emailed to the logged-in user. Two interchangeable backends exist
+(the app is a static export, so email needs a serverless function — never a
+client-only send):
+
+**A) Vercel Serverless Function (monolith)** — `api/send-report.ts` deploys with
+the web app on Vercel. Set env vars in Vercel → Settings → Environment Variables:
+`RESEND_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`. The web app calls
+`/api/send-report` (same origin). This is the recommended path — one project,
+front + back together.
+
+**B) Supabase Edge Function** — `supabase/functions/send-report/index.ts` (used by
+native builds as a fallback).
 
 1. Set the secret (never in the repo):
    ```
