@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, TouchableOpacity, ActivityIndicator, Modal } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect, useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { NativeStackNavigationProp } from '@react-navigation/native-stack';
@@ -38,6 +38,7 @@ export const FuelScreen: React.FC = () => {
   const [view, setView] = useState<View2>('list');
   const [showSheet, setShowSheet] = useState(false);
   const [editing, setEditing] = useState<FuelFillup | null>(null);
+  const [showInfo, setShowInfo] = useState(false);
 
   const load = useCallback(() => {
     setLoading(true);
@@ -71,7 +72,9 @@ export const FuelScreen: React.FC = () => {
           <Ionicons name="chevron-back" size={28} color={theme.accentDark} />
         </TouchableOpacity>
         <Text style={styles.topTitle}>Gasolina</Text>
-        <View style={{ width: 36 }} />
+        <TouchableOpacity onPress={() => setShowInfo(true)} style={styles.backBtn}>
+          <Ionicons name="information-circle-outline" size={24} color={theme.accentDark} />
+        </TouchableOpacity>
       </View>
 
       <View style={styles.segmentWrap}>
@@ -96,7 +99,7 @@ export const FuelScreen: React.FC = () => {
                 <Text style={styles.emptyTitle}>Nenhum abastecimento</Text>
                 <Text style={styles.emptySub}>Toque em + para registrar um abastecimento.</Text>
               </View>
-            ) : items.map(f => (
+            ) : items.map((f, idx) => (
               <TouchableOpacity key={f.id} style={styles.row} activeOpacity={0.7} disabled={readOnly} onPress={() => { setEditing(f); setShowSheet(true); }}>
                 <View style={styles.rowBody}>
                   <View style={styles.rowTop}>
@@ -106,12 +109,14 @@ export const FuelScreen: React.FC = () => {
                         <View style={styles.badge}><Text style={styles.badgeText}>Tanque cheio</Text></View>
                       )}
                     </View>
-                    {statsMap[f.id] && (
+                    {statsMap[f.id] ? (
                       <View style={{ alignItems: 'flex-end' }}>
                         {statsMap[f.id].kmL > 0 && <Text style={styles.rowConsumption}>{statsMap[f.id].kmL.toFixed(1)} km/L</Text>}
                         {statsMap[f.id].costPerKm > 0 && <Text style={styles.rowCost}>{formatBRL(statsMap[f.id].costPerKm)}/km</Text>}
                       </View>
-                    )}
+                    ) : idx === 0 ? (
+                      <Text style={styles.rowPending}>A definir</Text>
+                    ) : null}
                   </View>
                   <Text style={styles.rowMeta}>
                     {[f.flag, f.fuelType, f.local, f.date != null ? formatDate(f.date) : null, f.liters != null ? `${f.liters.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} L` : null, f.km != null ? `${f.km.toLocaleString('pt-BR')} km` : null].filter(Boolean).join(' · ') || '—'}
@@ -246,6 +251,32 @@ export const FuelScreen: React.FC = () => {
         onClose={() => { setShowSheet(false); setEditing(null); }}
         onSaved={() => { setShowSheet(false); setEditing(null); load(); }}
       />
+
+      <Modal visible={showInfo} transparent animationType="fade" onRequestClose={() => setShowInfo(false)}>
+        <View style={styles.infoOverlay}>
+          <View style={styles.infoModal}>
+            <View style={styles.infoModalHeader}>
+              <Ionicons name="information-circle" size={22} color={theme.accentDark} />
+              <Text style={styles.infoModalTitle}>Como funciona a média</Text>
+            </View>
+            <Text style={styles.infoModalText}>
+              A média (km/L) é calculada por <Text style={styles.infoModalBold}>tanque cheio</Text>: some os km rodados e os litros abastecidos desde o último tanque cheio até o próximo.
+            </Text>
+            <Text style={styles.infoModalText}>
+              Abastecimentos <Text style={styles.infoModalBold}>parciais</Text> (não marcados como tanque cheio) não geram média sozinhos — eles só acumulam km e litros até você completar o tanque de novo.
+            </Text>
+            <Text style={styles.infoModalText}>
+              O <Text style={styles.infoModalBold}>primeiro abastecimento</Text> registrado não tem uma média anterior pra comparar, então serve só como ponto de partida.
+            </Text>
+            <Text style={styles.infoModalText}>
+              Médias muito fora do padrão (30% acima ou abaixo do habitual) são marcadas como possível erro de digitação.
+            </Text>
+            <TouchableOpacity style={styles.infoModalBtn} onPress={() => setShowInfo(false)}>
+              <Text style={styles.infoModalBtnText}>Entendi</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 };
@@ -273,6 +304,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   badgeText: { fontSize: 10, fontWeight: '700', color: theme.accentDark },
   rowConsumption: { fontSize: 13, fontWeight: '700', color: theme.accentDark },
   rowCost: { fontSize: 12, fontWeight: '600', color: theme.textSecondary },
+  rowPending: { fontSize: 12, fontWeight: '700', color: theme.textTertiary, fontStyle: 'italic' },
   rowMeta: { fontSize: 13, color: theme.textSecondary },
   removeBtn: { padding: 2 },
   card: { marginHorizontal: 16, marginTop: 12, backgroundColor: theme.card, borderRadius: 16, padding: 16, ...theme.shadow },
@@ -295,4 +327,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   flagLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: theme.text },
   flagValue: { fontSize: 14, fontWeight: '800', color: theme.accentDark },
   fab: { position: 'absolute', right: 20, width: 58, height: 58, borderRadius: 29, backgroundColor: theme.accent, alignItems: 'center', justifyContent: 'center', ...theme.shadowLg },
+  infoOverlay: { flex: 1, backgroundColor: '#00000070', alignItems: 'center', justifyContent: 'center', padding: 32 },
+  infoModal: { width: '100%', maxWidth: 400, backgroundColor: theme.card, borderRadius: 20, padding: 24, gap: 10 },
+  infoModalHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  infoModalTitle: { fontSize: 17, fontWeight: '800', color: theme.text },
+  infoModalText: { fontSize: 14, color: theme.textSecondary, lineHeight: 20 },
+  infoModalBold: { fontWeight: '700', color: theme.text },
+  infoModalBtn: { backgroundColor: theme.accent, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
+  infoModalBtnText: { fontSize: 15, fontWeight: '700', color: '#000' },
 });

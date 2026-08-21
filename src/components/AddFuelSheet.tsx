@@ -55,6 +55,7 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
   const [kmText, setKmText] = useState('');
   const [fullTank, setFullTank] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showInfo, setShowInfo] = useState(false);
 
   useEffect(() => {
     if (!visible) return;
@@ -110,7 +111,12 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
     <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={onClose}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1, backgroundColor: theme.bg }}>
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>{existing ? 'Editar abastecimento' : 'Novo abastecimento'}</Text>
+          <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+            <Text style={styles.headerTitle}>{existing ? 'Editar abastecimento' : 'Novo abastecimento'}</Text>
+            <TouchableOpacity onPress={() => setShowInfo(true)}>
+              <Ionicons name="information-circle-outline" size={20} color={theme.accentDark} />
+            </TouchableOpacity>
+          </View>
           <TouchableOpacity onPress={onClose}><Ionicons name="close" size={24} color={theme.textSecondary} /></TouchableOpacity>
         </View>
         <ScrollView contentContainerStyle={[styles.body, contentStyle]} keyboardShouldPersistTaps="handled">
@@ -166,6 +172,7 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
               <Text style={styles.fieldLabel}>Odômetro (km atual)</Text>
               <TextInput style={styles.inlineInput} value={kmText} onChangeText={t => setKmText(kmMask(t))} keyboardType="numeric" placeholder="0" placeholderTextColor={theme.textTertiary} />
             </View>
+            <Text style={styles.fieldHint}>Total de km no painel do carro agora — não é quanto você rodou desde o último abastecimento.</Text>
             <View style={styles.sep} />
             <View style={styles.fieldRow}>
               <Text style={styles.fieldLabel}>Tanque cheio</Text>
@@ -178,6 +185,7 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
                 </TouchableOpacity>
               </View>
             </View>
+            <Text style={styles.fieldHint}>Marque "Sim" só quando encher o tanque até a boca. Abastecimento parcial marca "Não" — a média fecha certa no próximo tanque cheio.</Text>
           </View>
 
           <View style={styles.card}>
@@ -192,6 +200,29 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
           </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
+
+      <Modal visible={showInfo} transparent animationType="fade" onRequestClose={() => setShowInfo(false)}>
+        <View style={styles.infoOverlay}>
+          <View style={styles.infoModal}>
+            <View style={styles.infoModalHeader}>
+              <Ionicons name="information-circle" size={22} color={theme.accentDark} />
+              <Text style={styles.infoModalTitle}>Como preencher</Text>
+            </View>
+            <Text style={styles.infoModalText}>
+              <Text style={styles.infoModalBold}>Odômetro:</Text> o total de km do carro agora (o número do painel), não os km rodados desde o último posto.
+            </Text>
+            <Text style={styles.infoModalText}>
+              <Text style={styles.infoModalBold}>Tanque cheio:</Text> marque "Sim" só quando encheu o tanque até a boca. Se abasteceu só uma parte, marque "Não" — esse valor se soma ao próximo tanque cheio pra fechar a média certa.
+            </Text>
+            <Text style={styles.infoModalText}>
+              <Text style={styles.infoModalBold}>Litros e valor pago:</Text> usados pra calcular o preço do litro e, junto com o odômetro, a média de consumo.
+            </Text>
+            <TouchableOpacity style={styles.infoModalBtn} onPress={() => setShowInfo(false)}>
+              <Text style={styles.infoModalBtnText}>Entendi</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </Modal>
   );
 };
@@ -209,6 +240,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   sectionHeader: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, marginTop: 4, marginBottom: -4, letterSpacing: 0.5 },
   fieldRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, gap: 12 },
   fieldLabel: { fontSize: 14, color: theme.text, fontWeight: '500' },
+  fieldHint: { fontSize: 12, color: theme.textTertiary, paddingHorizontal: 16, paddingBottom: 12, marginTop: -8, lineHeight: 16 },
   inlineInput: { fontSize: 16, color: theme.text, paddingVertical: 14, minWidth: 120, textAlign: 'right' },
   computed: { fontSize: 16, fontWeight: '700', color: theme.accentDark, paddingVertical: 14 },
   segControl: { flexDirection: 'row', backgroundColor: theme.bg, borderRadius: 10, overflow: 'hidden' },
@@ -223,4 +255,12 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   chipTextActive: { color: theme.accentDark },
   saveBtn: { backgroundColor: theme.accent, borderRadius: 16, paddingVertical: 16, alignItems: 'center', marginTop: 8, ...theme.shadowMd },
   saveBtnText: { fontSize: 16, fontWeight: '800', color: '#000' },
+  infoOverlay: { flex: 1, backgroundColor: '#00000070', alignItems: 'center', justifyContent: 'center', padding: 32 },
+  infoModal: { width: '100%', maxWidth: 400, backgroundColor: theme.card, borderRadius: 20, padding: 24, gap: 10 },
+  infoModalHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 },
+  infoModalTitle: { fontSize: 17, fontWeight: '800', color: theme.text },
+  infoModalText: { fontSize: 14, color: theme.textSecondary, lineHeight: 20 },
+  infoModalBold: { fontWeight: '700', color: theme.text },
+  infoModalBtn: { backgroundColor: theme.accent, borderRadius: 12, paddingVertical: 12, alignItems: 'center', marginTop: 8 },
+  infoModalBtnText: { fontSize: 15, fontWeight: '700', color: '#000' },
 });
