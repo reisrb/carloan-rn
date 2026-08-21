@@ -16,6 +16,7 @@ interface Props {
   visible: boolean;
   financingId: string;
   existing?: FuelFillup | null;
+  lastOdometer: number | null;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -26,7 +27,7 @@ const dateMask = (t: string): string => {
   if (d.length > 2) return `${d.slice(0, 2)}/${d.slice(2)}`;
   return d;
 };
-// Right-to-left decimal masks: liters "45,678" (3 dec), km driven "321,32" (2 dec).
+// Right-to-left decimal masks: liters "45,678" (3 dec), km "123.456" (int).
 const litersMask = (t: string): string => {
   const d = t.replace(/\D/g, '').slice(0, 6);
   if (!d) return '';
@@ -37,13 +38,11 @@ const litersMask = (t: string): string => {
 const kmMask = (t: string): string => {
   const d = t.replace(/\D/g, '').slice(0, 7);
   if (!d) return '';
-  const p = d.padStart(3, '0');
-  const int = (p.slice(0, -2).replace(/^0+(?=\d)/, '') || '0').replace(/\B(?=(\d{3})+(?!\d))/g, '.');
-  return `${int},${p.slice(-2)}`;
+  return d.replace(/\B(?=(\d{3})+(?!\d))/g, '.');
 };
 const digitsToNum = (t: string, div: number) => (parseInt(t.replace(/\D/g, '') || '0', 10) || 0) / div;
 
-export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, onClose, onSaved }) => {
+export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, lastOdometer, onClose, onSaved }) => {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { contentStyle } = useResponsive();
@@ -53,7 +52,8 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
   const [dateText, setDateText] = useState('');
   const [cents, setCents] = useState(0);
   const [litersText, setLitersText] = useState('');
-  const [kmDrivenText, setKmDrivenText] = useState('');
+  const [kmText, setKmText] = useState('');
+  const [fullTank, setFullTank] = useState(true);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -65,18 +65,24 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
       setDateText(existing.date != null ? formatDate(existing.date) : '');
       setCents(Math.round(existing.totalValue * 100));
       setLitersText(existing.liters != null ? litersMask(String(Math.round(existing.liters * 1000))) : '');
-      setKmDrivenText(existing.kmDriven != null ? kmMask(String(Math.round(existing.kmDriven * 100))) : '');
+      setKmText(existing.km != null ? kmMask(String(Math.round(existing.km))) : '');
+      setFullTank(existing.fullTank);
     } else {
-      setLocal(''); setFlag(''); setFuelType(''); setDateText(''); setCents(0); setLitersText(''); setKmDrivenText('');
+      setLocal(''); setFlag(''); setFuelType(''); setDateText(''); setCents(0);
+      setLitersText(''); setKmText(''); setFullTank(true);
     }
   }, [visible, existing]);
 
   const liters = digitsToNum(litersText, 1000);
-  const kmDriven = digitsToNum(kmDrivenText, 100);
+  const km = kmText ? parseInt(kmText.replace(/\D/g, ''), 10) : null;
   const pricePerLiter = liters > 0 ? cents / 100 / liters : 0;
 
   const save = async () => {
     if (cents <= 0) { showAlert('Erro', 'Informe o valor do abastecimento.'); return; }
+    if (km !== null && lastOdometer !== null && km < lastOdometer && (!existing || existing.km !== km)) {
+      showAlert('Odômetro inválido', `O odômetro informado é menor que o último registrado (${lastOdometer.toLocaleString('pt-BR')} km). Corrija o valor antes de salvar.`);
+      return;
+    }
     setSaving(true);
     try {
       const input = {
@@ -86,8 +92,9 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
         date: parseDate(dateText),
         totalValue: cents / 100,
         liters: liters || null,
-        km: existing?.km ?? null,
-        kmDriven: kmDriven || null,
+        km,
+        kmDriven: existing?.kmDriven ?? null,
+        fullTank,
       };
       if (existing) await fuelService.update(existing.id, input);
       else await fuelService.create(financingId, input);
@@ -110,7 +117,7 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
           <View style={styles.note}>
             <Ionicons name="information-circle-outline" size={18} color={theme.accentDark} />
             <Text style={styles.noteText}>
-              Informe <Text style={styles.noteBold}>quantos km rodou desde o abastecimento anterior</Text>. Esses km medem o tanque do posto anterior — o consumo (km/L) aparece no card do <Text style={styles.noteBold}>posto anterior</Text>.
+              Informe <Text style={styles.noteBold}>o odômetro atual</Text> e marque <Text style={styles.noteBold}>tanque cheio</Text> quando completar o tanque. Abastecimentos parciais entram na conta do próximo tanque cheio.
             </Text>
           </View>
 
@@ -156,8 +163,20 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
           <Text style={styles.sectionHeader}>CONSUMO</Text>
           <View style={styles.card}>
             <View style={styles.fieldRow}>
-              <Text style={styles.fieldLabel}>Km desde o último posto</Text>
-              <TextInput style={styles.inlineInput} value={kmDrivenText} onChangeText={t => setKmDrivenText(kmMask(t))} keyboardType="numeric" placeholder="0,00" placeholderTextColor={theme.textTertiary} />
+              <Text style={styles.fieldLabel}>Odômetro (km atual)</Text>
+              <TextInput style={styles.inlineInput} value={kmText} onChangeText={t => setKmText(kmMask(t))} keyboardType="numeric" placeholder="0" placeholderTextColor={theme.textTertiary} />
+            </View>
+            <View style={styles.sep} />
+            <View style={styles.fieldRow}>
+              <Text style={styles.fieldLabel}>Tanque cheio</Text>
+              <View style={styles.segControl}>
+                <TouchableOpacity style={[styles.seg, fullTank && styles.segActive]} onPress={() => setFullTank(true)}>
+                  <Text style={[styles.segText, fullTank && styles.segTextActive]}>Sim</Text>
+                </TouchableOpacity>
+                <TouchableOpacity style={[styles.seg, !fullTank && styles.segActive]} onPress={() => setFullTank(false)}>
+                  <Text style={[styles.segText, !fullTank && styles.segTextActive]}>Não</Text>
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
 
@@ -192,6 +211,11 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   fieldLabel: { fontSize: 14, color: theme.text, fontWeight: '500' },
   inlineInput: { fontSize: 16, color: theme.text, paddingVertical: 14, minWidth: 120, textAlign: 'right' },
   computed: { fontSize: 16, fontWeight: '700', color: theme.accentDark, paddingVertical: 14 },
+  segControl: { flexDirection: 'row', backgroundColor: theme.bg, borderRadius: 10, overflow: 'hidden' },
+  seg: { paddingHorizontal: 16, paddingVertical: 8, alignItems: 'center' },
+  segActive: { backgroundColor: theme.accent },
+  segText: { fontSize: 13, fontWeight: '600', color: theme.textSecondary },
+  segTextActive: { color: '#000', fontWeight: '700' },
   chips: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   chip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, backgroundColor: theme.card, borderWidth: 1, borderColor: theme.border },
   chipActive: { backgroundColor: theme.accentSubtle, borderColor: theme.accentDark },

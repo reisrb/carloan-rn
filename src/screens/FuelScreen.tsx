@@ -6,8 +6,9 @@ import { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme, Theme, formatBRL } from '../theme';
 import { useResponsive } from '../hooks/useResponsive';
-import { FuelFillup, fuelByMonth, fuelMonthlyAverage, fuelStatsByFill, fuelConsumptionByFlag, fuelConsumptionByType } from '../types';
+import { FuelFillup, fuelByMonth, fuelMonthlyAverage } from '../types';
 import { fuelService } from '../services/fuelService';
+import { fuelCalculator } from '../services/fuelCalculator';
 import { AddFuelSheet } from '../components/AddFuelSheet';
 import { RootStackParamList, TAB_BAR_BOTTOM_OFFSET } from '../navigation';
 import { formatDate } from '../utils/date';
@@ -17,6 +18,12 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Route = RouteProp<RootStackParamList, 'Fuel'>;
 type View2 = 'list' | 'dashboard';
 
+const TREND_META: Record<'up' | 'down' | 'stable', { label: string; good: boolean }> = {
+  up: { label: 'Melhorando', good: true },
+  down: { label: 'Piorando', good: false },
+  stable: { label: 'Estável', good: true },
+};
+
 export const FuelScreen: React.FC = () => {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
@@ -24,7 +31,7 @@ export const FuelScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const { financingId, readOnly, currentKm } = route.params;
+  const { financingId, readOnly } = route.params;
 
   const [items, setItems] = useState<FuelFillup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -45,9 +52,13 @@ export const FuelScreen: React.FC = () => {
     });
   };
 
-  const statsMap = fuelStatsByFill(items);
-  const byFlag = fuelConsumptionByFlag(items);
-  const byType = fuelConsumptionByType(items);
+  const stats = useMemo(() => fuelCalculator.tripStats(items), [items]);
+  const statsMap = useMemo(() => fuelCalculator.statsByEntry(items), [items]);
+  const byFlag = useMemo(() => fuelCalculator.bestByFlag(items), [items]);
+  const lastOdometer = items.length > 0
+    ? Math.max(...items.map(f => f.km ?? 0))
+    : null;
+  const latestSegment = stats.allSegments[0];
   const months = fuelByMonth(items);
   const average = fuelMonthlyAverage(items);
   const grandTotal = items.reduce((s, f) => s + f.totalValue, 0);
@@ -89,7 +100,12 @@ export const FuelScreen: React.FC = () => {
               <TouchableOpacity key={f.id} style={styles.row} activeOpacity={0.7} disabled={readOnly} onPress={() => { setEditing(f); setShowSheet(true); }}>
                 <View style={styles.rowBody}>
                   <View style={styles.rowTop}>
-                    <Text style={styles.rowValue}>{formatBRL(f.totalValue)}</Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                      <Text style={styles.rowValue}>{formatBRL(f.totalValue)}</Text>
+                      {f.fullTank && (
+                        <View style={styles.badge}><Text style={styles.badgeText}>Tanque cheio</Text></View>
+                      )}
+                    </View>
                     {statsMap[f.id] && (
                       <View style={{ alignItems: 'flex-end' }}>
                         {statsMap[f.id].kmL > 0 && <Text style={styles.rowConsumption}>{statsMap[f.id].kmL.toFixed(1)} km/L</Text>}
@@ -98,7 +114,7 @@ export const FuelScreen: React.FC = () => {
                     )}
                   </View>
                   <Text style={styles.rowMeta}>
-                    {[f.flag, f.fuelType, f.local, f.date != null ? formatDate(f.date) : null, f.liters != null ? `${f.liters.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} L` : null, f.kmDriven != null ? `${f.kmDriven.toLocaleString('pt-BR', { maximumFractionDigits: 2 })} km rodados` : null].filter(Boolean).join(' · ') || '—'}
+                    {[f.flag, f.fuelType, f.local, f.date != null ? formatDate(f.date) : null, f.liters != null ? `${f.liters.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} L` : null, f.km != null ? `${f.km.toLocaleString('pt-BR')} km` : null].filter(Boolean).join(' · ') || '—'}
                   </Text>
                 </View>
                 {!readOnly && (
@@ -110,21 +126,62 @@ export const FuelScreen: React.FC = () => {
             ))
           ) : (
             <>
-              <View style={[styles.card, styles.hero]}>
-                <Text style={styles.heroLabel}>MÉDIA MENSAL (ÚLTIMOS 3 MESES)</Text>
-                <Text style={styles.heroValue}>{formatBRL(average)}</Text>
-                <Text style={styles.heroSub}>{months.length} {months.length === 1 ? 'mês' : 'meses'} · total {formatBRL(grandTotal)}</Text>
-              </View>
+              {stats.firstEntryIsReference && (
+                <View style={[styles.card, styles.infoCard]}>
+                  <Ionicons name="flag-outline" size={26} color={theme.accentDark} />
+                  <Text style={styles.infoTitle}>Ponto de referência</Text>
+                  <Text style={styles.infoText}>Primeiro abastecimento registrado. A média aparecerá após o próximo tanque cheio.</Text>
+                </View>
+              )}
 
-              {byType.length > 0 && (
+              {stats.pendingEntry && (
+                <View style={[styles.card, styles.infoCard]}>
+                  <Ionicons name="time-outline" size={26} color={theme.orange} />
+                  <Text style={styles.infoTitle}>Aguardando tanque cheio</Text>
+                  <Text style={styles.infoText}>
+                    {(stats.pendingEntry.liters ?? 0) > 0 ? `${(stats.pendingEntry.liters as number).toLocaleString('pt-BR', { maximumFractionDigits: 3 })} L acumulados` : 'Abastecimento parcial registrado'} — a média será calculada no próximo tanque cheio.
+                  </Text>
+                </View>
+              )}
+
+              {latestSegment && latestSegment.average > 0 && (
+                <View style={[styles.card, styles.hero]}>
+                  <Text style={styles.heroLabel}>ÚLTIMA MÉDIA{latestSegment.fuelType !== fuelCalculator.NO_TYPE ? ` · ${latestSegment.fuelType.toUpperCase()}` : ''}</Text>
+                  <Text style={styles.heroValue}>{latestSegment.average.toFixed(1)} km/L</Text>
+                  <Text style={styles.heroSub}>
+                    {latestSegment.kmDriven.toLocaleString('pt-BR')} km · {latestSegment.litersTotal.toLocaleString('pt-BR', { maximumFractionDigits: 3 })} L
+                    {latestSegment.costPerKm > 0 ? ` · ${formatBRL(latestSegment.costPerKm)}/km` : ''}
+                  </Text>
+                </View>
+              )}
+
+              {latestSegment?.isOutlier && (
+                <View style={[styles.card, styles.outlierCard]}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 4 }}>
+                    <Ionicons name="warning-outline" size={18} color={theme.orange} />
+                    <Text style={styles.infoTitle}>Média fora do padrão</Text>
+                  </View>
+                  <Text style={styles.infoText}>
+                    {latestSegment.outlierDeviationPct !== null
+                      ? `Este abastecimento teve uma média ${Math.round(Math.abs(latestSegment.outlierDeviationPct) * 100)}% ${latestSegment.outlierDeviationPct > 0 ? 'maior' : 'menor'} que o habitual. `
+                      : ''}
+                    Pode ser um erro de digitação ou um abastecimento que não completou o tanque de fato.
+                  </Text>
+                </View>
+              )}
+
+              {stats.byFuelType.length > 0 && (
                 <>
                   <Text style={styles.flagTitle}>Consumo por combustível</Text>
                   <View style={styles.card}>
-                    {byType.map((b, i) => (
-                      <View key={b.type} style={[styles.monthRow, i > 0 && styles.monthRowSep]}>
+                    {stats.byFuelType.map((t, i) => (
+                      <View key={t.fuelType} style={[styles.monthRow, i > 0 && styles.monthRowSep]}>
                         {i === 0 && <Ionicons name="trophy" size={14} color={theme.orange} style={{ marginRight: 4 }} />}
-                        <Text style={styles.flagLabel} numberOfLines={1}>{b.type}</Text>
-                        <Text style={styles.flagValue}>{b.kmL.toFixed(1)} km/L</Text>
+                        <Text style={styles.flagLabel} numberOfLines={1}>{t.fuelType}</Text>
+                        <View style={{ alignItems: 'flex-end' }}>
+                          {t.overallAverage != null && <Text style={styles.flagValue}>{t.overallAverage.toFixed(1)} km/L</Text>}
+                          {t.trend && <Text style={[styles.trendText, { color: TREND_META[t.trend].good ? '#22C55E' : theme.spend }]}>{TREND_META[t.trend].label}</Text>}
+                        </View>
                       </View>
                     ))}
                   </View>
@@ -151,8 +208,12 @@ export const FuelScreen: React.FC = () => {
                 <Text style={styles.emptySub}>Sem dados ainda.</Text>
               ) : (
                 <View style={styles.card}>
+                  <View style={styles.monthRow}>
+                    <Text style={styles.monthLabel}>Média/mês</Text>
+                    <Text style={[styles.monthValue, { width: undefined, flex: 1, textAlign: 'left' }]}>{formatBRL(average)}</Text>
+                  </View>
                   {months.map((m, i) => (
-                    <View key={m.key} style={[styles.monthRow, i > 0 && styles.monthRowSep]}>
+                    <View key={m.key} style={[styles.monthRow, styles.monthRowSep]}>
                       <Text style={styles.monthLabel}>{m.label}</Text>
                       <View style={styles.barTrack}>
                         <View style={[styles.barFill, { width: `${Math.max(6, (m.total / maxMonth) * 100)}%` }]} />
@@ -160,6 +221,10 @@ export const FuelScreen: React.FC = () => {
                       <Text style={styles.monthValue}>{formatBRL(m.total)}</Text>
                     </View>
                   ))}
+                  <View style={[styles.monthRow, styles.monthRowSep]}>
+                    <Text style={styles.monthLabel}>Total</Text>
+                    <Text style={[styles.monthValue, { width: undefined, flex: 1, textAlign: 'right' }]}>{formatBRL(grandTotal)}</Text>
+                  </View>
                 </View>
               )}
             </>
@@ -173,7 +238,14 @@ export const FuelScreen: React.FC = () => {
         </TouchableOpacity>
       )}
 
-      <AddFuelSheet visible={showSheet} financingId={financingId} existing={editing} onClose={() => { setShowSheet(false); setEditing(null); }} onSaved={() => { setShowSheet(false); setEditing(null); load(); }} />
+      <AddFuelSheet
+        visible={showSheet}
+        financingId={financingId}
+        existing={editing}
+        lastOdometer={lastOdometer}
+        onClose={() => { setShowSheet(false); setEditing(null); }}
+        onSaved={() => { setShowSheet(false); setEditing(null); load(); }}
+      />
     </View>
   );
 };
@@ -197,11 +269,17 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   rowBody: { flex: 1, gap: 2 },
   rowTop: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: 8 },
   rowValue: { fontSize: 16, fontWeight: '800', color: theme.text },
+  badge: { backgroundColor: theme.accentSubtle, borderRadius: 8, paddingHorizontal: 7, paddingVertical: 2 },
+  badgeText: { fontSize: 10, fontWeight: '700', color: theme.accentDark },
   rowConsumption: { fontSize: 13, fontWeight: '700', color: theme.accentDark },
   rowCost: { fontSize: 12, fontWeight: '600', color: theme.textSecondary },
   rowMeta: { fontSize: 13, color: theme.textSecondary },
   removeBtn: { padding: 2 },
   card: { marginHorizontal: 16, marginTop: 12, backgroundColor: theme.card, borderRadius: 16, padding: 16, ...theme.shadow },
+  infoCard: { alignItems: 'center', gap: 6, paddingVertical: 20 },
+  infoTitle: { fontSize: 15, fontWeight: '800', color: theme.text },
+  infoText: { fontSize: 13, color: theme.textSecondary, textAlign: 'center', lineHeight: 18 },
+  outlierCard: { borderWidth: 1.5, borderColor: theme.orange + '55' },
   hero: { alignItems: 'center', gap: 4, paddingVertical: 24 },
   heroLabel: { fontSize: 12, fontWeight: '800', letterSpacing: 0.6, color: theme.accentDark },
   heroValue: { fontSize: 34, fontWeight: '900', color: theme.text },
@@ -212,6 +290,7 @@ const makeStyles = (theme: Theme) => StyleSheet.create({
   barTrack: { flex: 1, height: 8, borderRadius: 4, backgroundColor: theme.separator, overflow: 'hidden' },
   barFill: { height: '100%', borderRadius: 4, backgroundColor: theme.accentDark },
   monthValue: { fontSize: 13, fontWeight: '700', color: theme.text, width: 88, textAlign: 'right' },
+  trendText: { fontSize: 11, fontWeight: '700' },
   flagTitle: { fontSize: 12, fontWeight: '700', color: theme.textSecondary, marginHorizontal: 20, marginTop: 18, marginBottom: 8, letterSpacing: 0.5, textTransform: 'uppercase' },
   flagLabel: { flex: 1, fontSize: 14, fontWeight: '600', color: theme.text },
   flagValue: { fontSize: 14, fontWeight: '800', color: theme.accentDark },

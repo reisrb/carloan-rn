@@ -10,7 +10,8 @@ import { useResponsive } from '../hooks/useResponsive';
 import { useCar } from '../contexts/CarContext';
 import { imageService } from '../services/imageService';
 import { fuelService } from '../services/fuelService';
-import { FuelFillup, lastFuelStats } from '../types';
+import { fuelCalculator } from '../services/fuelCalculator';
+import { FuelFillup } from '../types';
 import { sharingService, FinancingMember } from '../services/sharingService';
 import { adminService } from '../services/adminService';
 import { RootStackParamList, TAB_BAR_BOTTOM_OFFSET } from '../navigation';
@@ -134,7 +135,7 @@ export const CarInfoScreen: React.FC = () => {
         <View style={styles.card}>
           <Text style={styles.membersTitle}>Consumo atual</Text>
           {(() => {
-            const last = lastFuelStats(fuel);
+            const last = fuelCalculator.lastSegmentStats(fuel);
             if (last == null) {
               return <Text style={styles.consumptionHint}>Registre abastecimentos com os km rodados para ver o consumo.</Text>;
             }

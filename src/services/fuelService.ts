@@ -13,6 +13,7 @@ type FuelRow = {
   liters: number | null;
   km: number | null;
   km_driven: number | null;
+  full_tank: boolean;
   created_at: number;
 };
 
@@ -27,6 +28,7 @@ const toFillup = (r: FuelRow): FuelFillup => ({
   liters: r.liters,
   km: r.km,
   kmDriven: r.km_driven,
+  fullTank: r.full_tank,
   createdAt: r.created_at,
 });
 
@@ -39,6 +41,7 @@ export interface FuelInput {
   liters: number | null;
   km: number | null;
   kmDriven: number | null;
+  fullTank: boolean;
 }
 
 export const fuelService = {
@@ -67,6 +70,7 @@ export const fuelService = {
       liters: input.liters,
       km: input.km,
       km_driven: input.kmDriven,
+      full_tank: input.fullTank,
       created_at: Date.now(),
     });
     if (error) throw new Error(error.message);
@@ -82,6 +86,7 @@ export const fuelService = {
       liters: input.liters,
       km: input.km,
       km_driven: input.kmDriven,
+      full_tank: input.fullTank,
     }).eq('id', id);
     if (error) throw new Error(error.message);
   },
