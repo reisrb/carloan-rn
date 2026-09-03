@@ -31,7 +31,7 @@ export const FuelScreen: React.FC = () => {
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<Nav>();
   const route = useRoute<Route>();
-  const { financingId, readOnly } = route.params;
+  const { financingId, readOnly, currentKm } = route.params;
 
   const [items, setItems] = useState<FuelFillup[]>([]);
   const [loading, setLoading] = useState(true);
@@ -248,6 +248,7 @@ export const FuelScreen: React.FC = () => {
         financingId={financingId}
         existing={editing}
         lastOdometer={lastOdometer}
+        carCurrentKm={currentKm ?? null}
         onClose={() => { setShowSheet(false); setEditing(null); }}
         onSaved={() => { setShowSheet(false); setEditing(null); load(); }}
       />
