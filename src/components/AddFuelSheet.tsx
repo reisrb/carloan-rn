@@ -7,16 +7,18 @@ import { Ionicons } from '@expo/vector-icons';
 import { useTheme, Theme, formatBRL } from '../theme';
 import { useResponsive } from '../hooks/useResponsive';
 import { fuelService } from '../services/fuelService';
+import { financingService } from '../services/financingService';
 import { FuelFillup } from '../types';
 import { CurrencyInput } from './CurrencyInput';
 import { formatDate, parseDate } from '../utils/date';
-import { showAlert } from '../utils/dialogs';
+import { showAlert, showConfirm } from '../utils/dialogs';
 
 interface Props {
   visible: boolean;
   financingId: string;
   existing?: FuelFillup | null;
   lastOdometer: number | null;
+  carCurrentKm: number | null;
   onClose: () => void;
   onSaved: () => void;
 }
@@ -42,7 +44,7 @@ const kmMask = (t: string): string => {
 };
 const digitsToNum = (t: string, div: number) => (parseInt(t.replace(/\D/g, '') || '0', 10) || 0) / div;
 
-export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, lastOdometer, onClose, onSaved }) => {
+export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, lastOdometer, carCurrentKm, onClose, onSaved }) => {
   const theme = useTheme();
   const styles = useMemo(() => makeStyles(theme), [theme]);
   const { contentStyle } = useResponsive();
@@ -99,6 +101,15 @@ export const AddFuelSheet: React.FC<Props> = ({ visible, financingId, existing, 
       };
       if (existing) await fuelService.update(existing.id, input);
       else await fuelService.create(financingId, input);
+
+      if (km !== null && carCurrentKm !== null && km > carCurrentKm) {
+        showConfirm(
+          'Atualizar quilometragem?',
+          `O odômetro informado (${km.toLocaleString('pt-BR')} km) é maior que o registrado no carro (${carCurrentKm.toLocaleString('pt-BR')} km). Atualizar o km do carro?`,
+          'Atualizar',
+          () => { financingService.updateKm(financingId, km).catch(() => null); },
+        );
+      }
       onSaved();
     } catch (e: any) {
       showAlert('Erro ao salvar', e?.message ?? 'Tente novamente');
